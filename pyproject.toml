@@ -1,7 +1,7 @@
 [project]
-name = "adk-short-bot"
+name = "simulation_guide"
 version = "0.1.0"
-description = "A bot that shortens your messages"
+description = "A guide to the simulation"
 authors = [
     {name = "Brandon Hancock", email = "brandon@brandonhancock.io"}
 ]
@@ -18,9 +18,10 @@ python-dotenv = "^1.1.0"
 google-cloud-aiplatform = {extras = ["adk", "agent_engines"], version = "^1.42.1"}
 absl-py = "^2.1.0"
 cloudpickle = "^3.0.0"
+litellm = "^1.25.6"
 
 [tool.poetry.scripts]
-adk-short-bot = "adk_short_bot:app"
+simulation_guide = "simulation_guide:app"
 deploy-local = "deployment.local:main"
 deploy-remote = "deployment.remote:main"
 cleanup = "deployment.cleanup:cleanup_deployment"
