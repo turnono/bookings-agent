@@ -4,7 +4,7 @@ A Python-based agent that helps navigating the simulation using Google's Agent D
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.11+
 - Poetry (Python package manager)
 - Google Cloud account with Vertex AI API enabled
 - Google Cloud CLI (`gcloud`) installed and authenticated
@@ -16,7 +16,7 @@ A Python-based agent that helps navigating the simulation using Google's Agent D
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/bhancockio/deploy-adk-agent-engine.git
+git clone https://github.com/turnono/simulation-guide-agent.git
 cd simulation-guide
 ```
 
@@ -124,18 +124,18 @@ poetry run deploy-remote --delete --resource_id=your-resource-id
 
 ## Project Structure
 
-```
-simulation_guide/
-├── simulation_guide/          # Main package directory
-│   ├── __init__.py
-│   ├── agent.py           # Agent implementation
-│   └── prompt.py          # Prompt templates
-├── deployment/            # Deployment scripts
-│   ├── local.py          # Local testing script
-│   └── remote.py         # Remote deployment script
-├── .env                  # Environment variables
-├── poetry.lock          # Poetry lock file
-└── pyproject.toml       # Project configuration
+```text
+.  
+├── simulation_guide/       # Python ADK package
+├── server/                 # FastAPI HTTP server
+├── deployment/             # Deployment scripts (local/remote)
+├── client/                 # Angular + Firebase frontend (built to client/dist/)
+├── .env                    # Environment variables for backend
+├── firebase.json           # Firebase Hosting config for frontend
+├── .firebaserc             # Firebase CLI project aliases
+├── pyproject.toml          # Python project configuration
+├── package.json            # Frontend project dependencies (in client/)
+└── README.md               # This file
 ```
 
 ## Development
@@ -171,25 +171,3 @@ To add new features or modify existing ones:
 
 [Your chosen license]
 
-Ran tool
-
-Read file: pyproject.toml
-
-```bash
-source .venv/bin/activate && which python && python --version
-```
-
-The Python virtual environment is already set up and can be activated with:
-
-```bash
-source .venv/bin/activate
-```
-
-However, the current environment uses Python 3.11.3, while your `pyproject.toml` specifies `requires-python = ">=3.12"`. If you need Python 3.12 specifically, you should create a new virtual environment with Python 3.12 installed.
-
-Would you like instructions to:
-
-- Install Python 3.12 and recreate the environment, or
-- Continue using the current Python 3.11.3 environment?
-
-Let me know your preference!

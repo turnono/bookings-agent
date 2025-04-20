@@ -6,11 +6,11 @@ authors = [
     {name = "Brandon Hancock", email = "brandon@brandonhancock.io"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 license = "Apache License 2.0"
 
 [tool.poetry.dependencies]
-python = ">=3.12"
+python = ">=3.11"
 requests = "^2.31.0"
 google-adk = "^0.1.0"
 pydantic = "^2.11.3"
@@ -21,7 +21,7 @@ cloudpickle = "^3.0.0"
 litellm = "^1.25.6"
 
 [tool.poetry.scripts]
-simulation_guide = "simulation_guide:app"
+simulation_guide = "server.serve:main"
 deploy-local = "deployment.local:main"
 deploy-remote = "deployment.remote:main"
 cleanup = "deployment.cleanup:cleanup_deployment"
