@@ -38,7 +38,7 @@ taskmaster_franklin_covey_agent = LlmAgent(
     # after_agent_callback=track_agent_response,  # Track agent responses
     # before_model_callback=input_safety_guardrail,  # Add input safety guardrail
     # before_tool_callback=tool_usage_guardrail,  # Add tool usage guardrail
-    output_key="task_master_output"  # Store output in session state with this key
+    output_key="taskmaster_franklin_covey_output"  # Store output in session state with this key
 )
 
 # Function to access this agent

@@ -39,7 +39,7 @@ architect_james_brown_agent = LlmAgent(
     # after_agent_callback=track_agent_response,  # Track agent responses
     # before_model_callback=input_safety_guardrail,  # Add input safety guardrail
     # before_tool_callback=tool_usage_guardrail,  # Add tool usage guardrail
-    output_key="architect_blueprint"  # Store output in session state with this key
+    output_key="architect_james_brown_output"  # Store output in session state with this key
 )
 
 # You might want a way to easily get this agent instance later

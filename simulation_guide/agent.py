@@ -15,5 +15,6 @@ root_agent = LlmAgent(
     sub_agents=[
         architect_james_brown_agent,
         taskmaster_franklin_covey_agent
-    ]
+    ],
+    output_key="simulation_guide_output"
 )
