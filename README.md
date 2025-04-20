@@ -170,3 +170,26 @@ To add new features or modify existing ones:
 ## License
 
 [Your chosen license]
+
+Ran tool
+
+Read file: pyproject.toml
+
+```bash
+source .venv/bin/activate && which python && python --version
+```
+
+The Python virtual environment is already set up and can be activated with:
+
+```bash
+source .venv/bin/activate
+```
+
+However, the current environment uses Python 3.11.3, while your `pyproject.toml` specifies `requires-python = ">=3.12"`. If you need Python 3.12 specifically, you should create a new virtual environment with Python 3.12 installed.
+
+Would you like instructions to:
+
+- Install Python 3.12 and recreate the environment, or
+- Continue using the current Python 3.11.3 environment?
+
+Let me know your preference!
