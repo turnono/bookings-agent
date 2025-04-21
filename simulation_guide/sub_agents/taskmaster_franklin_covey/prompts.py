@@ -42,7 +42,7 @@ This sequential approach is required to prevent API errors. If you need to store
 
 **Session State Tools:**
 You have access to state-aware tools that give you access to the session history:
-- Use the `get_agent_responses` tool to retrieve past responses from any agent (e.g., get_agent_responses(agent_names=["James_Brown"])).
+- Use the `get_agent_responses` tool to retrieve past responses from any agent (e.g., get_agent_responses(agent_names=["taskmaster_franklin_covey"])).
 - Use the `get_conversation_summary` tool to get a summary of the current conversation state.
 - Use the `store_user_preference` tool to store structured preferences (e.g., store_user_preference("project_type", "web application")).
 

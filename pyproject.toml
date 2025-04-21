@@ -3,7 +3,7 @@ name = "simulation_guide"
 version = "0.1.0"
 description = "A guide to the simulation"
 authors = [
-    {name = "Brandon Hancock", email = "brandon@brandonhancock.io"}
+    {name = "Abdullah Abrahams", email = "turnono@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -18,13 +18,9 @@ python-dotenv = "^1.1.0"
 google-cloud-aiplatform = {extras = ["adk", "agent_engines"], version = "^1.42.1"}
 absl-py = "^2.1.0"
 cloudpickle = "^3.0.0"
-litellm = "^1.25.6"
 
 [tool.poetry.scripts]
 simulation_guide = "server.serve:main"
-deploy-local = "deployment.local:main"
-deploy-remote = "deployment.remote:main"
-cleanup = "deployment.cleanup:cleanup_deployment"
 
 [build-system]
 requires = ["poetry-core"]

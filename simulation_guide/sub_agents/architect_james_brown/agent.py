@@ -6,7 +6,7 @@ from google.adk.tools import FunctionTool
 # from guide_zero_simulation.tools.state_aware_tools import get_agent_responses, get_conversation_summary, store_user_preference
 # from guide_zero_simulation.tools.agent_response_tracker import track_agent_response
 # from guide_zero_simulation.tools.safety_guardrails import input_safety_guardrail, tool_usage_guardrail
-from simulation_guide.models import gemini_pro, gemini_flash, DEFAULT_MODEL
+from simulation_guide.models import DEFAULT_MODEL
 from .prompts import TECH_ARCHITECT_INSTRUCTION
 
 # Define memory tools
@@ -34,7 +34,7 @@ architect_james_brown_agent = LlmAgent(
     name="architect_james_brown",
     description="Designs the technical foundation and blueprints for AI agents.",
     instruction=TECH_ARCHITECT_INSTRUCTION,
-    model=gemini_pro,  # Using Gemini Pro for complex architectural tasks
+    model=DEFAULT_MODEL,  # Using Gemini Pro for complex architectural tasks
     # tools=all_tools,  # Add all tools
     # after_agent_callback=track_agent_response,  # Track agent responses
     # before_model_callback=input_safety_guardrail,  # Add input safety guardrail
