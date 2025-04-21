@@ -1,0 +1,26 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Project Structure and Navigation Guide
+
+This project is a Python-based agent system using Google's Agent Development Kit (ADK) and Vertex AI. The main entry point is [main.py](mdc:main.py), which launches a FastAPI server and loads the agent system.
+
+## Key Directories and Files
+- [main.py](mdc:main.py): Main entry point for the FastAPI app and agent API.
+- [simulation_guide/](mdc:simulation_guide): Core ADK agent package, including agent definitions, tools, prompts, and sub-agents.
+  - [agent.py](mdc:simulation_guide/agent.py): Defines the root agent and its configuration.
+  - [prompt.py](mdc:simulation_guide/prompt.py): Contains the main agent instruction and prompt logic.
+  - [models.py](mdc:simulation_guide/models.py): Model configuration and selection.
+  - [tools/](mdc:simulation_guide/tools): Custom tools for agent use (e.g., [character_counter.py](mdc:simulation_guide/tools/character_counter.py)).
+  - [sub_agents/](mdc:simulation_guide/sub_agents): Specialized sub-agents for task management and architecture design.
+- [deployment/](mdc:deployment): Scripts for local and remote deployment ([local.py](mdc:deployment/local.py), [remote.py](mdc:deployment/remote.py), [cleanup.py](mdc:deployment/cleanup.py)).
+- [README.md](mdc:README.md): Project overview, setup, and usage instructions.
+
+## How to Navigate
+- Start with [main.py](mdc:main.py) to see how the FastAPI app and agent are initialized.
+- Explore [simulation_guide/agent.py](mdc:simulation_guide/agent.py) for the root agent and sub-agent configuration.
+- Refer to [simulation_guide/prompt.py](mdc:simulation_guide/prompt.py) for the main agent's instruction set.
+- Check [simulation_guide/tools/](mdc:simulation_guide/tools) for available tools and their docstrings.
+- See [deployment/](mdc:deployment) for deployment and session management scripts.

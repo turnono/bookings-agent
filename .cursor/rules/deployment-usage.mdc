@@ -1,0 +1,18 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Deployment and Usage Guide
+
+## Current Deployment Method
+- Deployment is currently performed using the [makefile](mdc:makefile), which deploys the service to Google Cloud Run.
+- The [deployment/](mdc:deployment) folder and its scripts are **not currently used**.
+
+## Agent Engine (Vertex) Scripts (Not in Use)
+- [deployment/local.py](mdc:deployment/local.py), [deployment/remote.py](mdc:deployment/remote.py), and [deployment/cleanup.py](mdc:deployment/cleanup.py) are for deploying and managing the agent on Vertex AI Agent Engine.
+- These scripts are provided for reference but are not part of the active deployment workflow.
+
+## Environment Setup
+- Ensure `.env` is configured with Google Cloud project, location, and bucket if you plan to use Vertex AI in the future.
+- For Cloud Run deployment, follow the instructions in the [README.md](mdc:README.md) and [makefile](mdc:makefile).

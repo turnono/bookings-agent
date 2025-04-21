@@ -1,0 +1,31 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Tool Guidance and ADK Limitations
+
+## Tool Docstrings
+- Every tool in [simulation_guide/tools/](mdc:simulation_guide/tools) must have a clear, concise docstring.
+- Docstrings should describe:
+  - What the tool does
+  - When it should be used
+  - Any important context or limitations
+- Example (see [character_counter.py](mdc:simulation_guide/tools/character_counter.py)):
+  ```python
+  def count_characters(message: str) -> int:
+      """
+      Count the number of characters in a message.
+      Use for text analysis or input validation tasks.
+      """
+  ```
+
+## Agent Instruction Guidance
+- In each agent's instruction (see [prompt.py](mdc:simulation_guide/prompt.py)), enumerate available tools and provide guidance on when to use each.
+- This helps the LLM select the correct tool during execution.
+
+## ADK Tool Limitations
+- Only one built-in tool is allowed per root agent (see [agent.py](mdc:simulation_guide/agent.py)).
+- Built-in tools cannot be used in sub-agents (see [sub_agents/](mdc:simulation_guide/sub_agents)).
+- Custom tools can be used in both root and sub-agents.
+- For more, see the limitations described in the project documentation and [README.md](mdc:README.md).
