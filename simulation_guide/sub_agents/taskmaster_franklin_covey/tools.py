@@ -1,4 +1,6 @@
-def break_down_tasks(goal):
+from typing import List
+
+def break_down_tasks(goal: str):
     """
     Break down a broad objective into smaller actionable tasks.
 
@@ -15,7 +17,7 @@ def break_down_tasks(goal):
     return {"tasks": [], "status": "success"}
 
 
-def prioritize_tasks(tasks, framework):
+def prioritize_tasks(tasks: List[str], framework: str):
     """
     Order a list of tasks using a prioritization framework (default: "ABC" or "Eisenhower").
 
@@ -34,7 +36,7 @@ def prioritize_tasks(tasks, framework):
     return {"ordered": tasks, "method": framework, "status": "success"}
 
 
-def set_deadline(task, days_from_now):
+def set_deadline(task: str, days_from_now: int):
     """
     Assign a concrete due date to a task, a set number of days from now.
 
@@ -54,7 +56,7 @@ def set_deadline(task, days_from_now):
     return {"deadline": deadline, "status": "success"}
 
 
-def summarize_progress(tasks):
+def summarize_progress(tasks: List[str]):
     """
     Summarize the completion status of a list of tasks.
 
