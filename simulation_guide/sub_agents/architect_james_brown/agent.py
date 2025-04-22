@@ -8,6 +8,7 @@ from google.adk.tools import FunctionTool
 # from guide_zero_simulation.tools.safety_guardrails import input_safety_guardrail, tool_usage_guardrail
 from simulation_guide.models import DEFAULT_MODEL
 from .prompts import TECH_ARCHITECT_INSTRUCTION
+from .tools import identify_capability_gap, propose_agent_spec, select_toolset, risk_assessment
 
 # Define memory tools
 # memory_tools = [
@@ -35,6 +36,12 @@ architect_james_brown_agent = LlmAgent(
     description="Designs the technical foundation and blueprints for AI agents.",
     instruction=TECH_ARCHITECT_INSTRUCTION,
     model=DEFAULT_MODEL,  # Using Gemini Pro for complex architectural tasks
+    tools=[
+        FunctionTool(identify_capability_gap),
+        FunctionTool(propose_agent_spec),
+        FunctionTool(select_toolset),
+        FunctionTool(risk_assessment)
+    ],
     # tools=all_tools,  # Add all tools
     # after_agent_callback=track_agent_response,  # Track agent responses
     # before_model_callback=input_safety_guardrail,  # Add input safety guardrail

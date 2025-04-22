@@ -8,6 +8,7 @@ from google.adk.tools import FunctionTool
 # from guide_zero_simulation.tools.safety_guardrails import input_safety_guardrail, tool_usage_guardrail
 from simulation_guide.models import DEFAULT_MODEL
 from .prompts import TASK_MASTER_INSTRUCTION
+from .tools import break_down_tasks, prioritize_tasks, set_deadline, summarize_progress
 
 # Define memory tools
 # memory_tools = [
@@ -34,6 +35,12 @@ taskmaster_franklin_covey_agent = LlmAgent(
     description="Assists with breaking down, prioritizing, and tracking tasks using structured productivity frameworks.",
     instruction=TASK_MASTER_INSTRUCTION,
     model=DEFAULT_MODEL,  # Using Gemini Flash for faster task management responses
+    tools=[
+        FunctionTool(break_down_tasks),
+        FunctionTool(prioritize_tasks),
+        FunctionTool(set_deadline),
+        FunctionTool(summarize_progress)
+    ],
     # tools=all_tools,  # Add all tools
     # after_agent_callback=track_agent_response,  # Track agent responses
     # before_model_callback=input_safety_guardrail,  # Add input safety guardrail
