@@ -8,3 +8,4 @@ env.*
 # Ignore all environment variable files and folders
 
 sim-guide-agent-service-account.json
+sessions.db

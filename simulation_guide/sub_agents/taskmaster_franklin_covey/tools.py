@@ -1,6 +1,6 @@
 from typing import List
 
-def break_down_tasks(goal: str):
+def break_down_tasks(goal: str) -> dict:
     """
     Break down a broad objective into smaller actionable tasks.
 
@@ -17,7 +17,7 @@ def break_down_tasks(goal: str):
     return {"tasks": [], "status": "success"}
 
 
-def prioritize_tasks(tasks: List[str], framework: str):
+def prioritize_tasks(tasks: List[str], framework: str) -> dict:
     """
     Order a list of tasks using a prioritization framework (default: "ABC" or "Eisenhower").
 
@@ -36,7 +36,7 @@ def prioritize_tasks(tasks: List[str], framework: str):
     return {"ordered": tasks, "method": framework, "status": "success"}
 
 
-def set_deadline(task: str, days_from_now: int):
+def set_deadline(task: str, days_from_now: int) -> dict:
     """
     Assign a concrete due date to a task, a set number of days from now.
 
@@ -56,7 +56,7 @@ def set_deadline(task: str, days_from_now: int):
     return {"deadline": deadline, "status": "success"}
 
 
-def summarize_progress(tasks: List[str]):
+def summarize_progress(tasks: List[str]) -> dict:
     """
     Summarize the completion status of a list of tasks.
 

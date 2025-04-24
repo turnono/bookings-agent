@@ -1,4 +1,6 @@
-def identify_capability_gap(context):
+from typing import List
+
+def identify_capability_gap(context: str) -> dict:
     """
     Identify missing skills or capabilities from the current agent roster.
 
@@ -15,7 +17,7 @@ def identify_capability_gap(context):
     return {"gaps": [], "status": "success"}
 
 
-def propose_agent_spec(purpose, key_capabilities):
+def propose_agent_spec(purpose: str, key_capabilities: List[str]) -> dict:
     """
     Propose a high-level specification for a new agent.
 
@@ -34,7 +36,7 @@ def propose_agent_spec(purpose, key_capabilities):
     return {"agent_name": "", "description": "", "status": "success"}
 
 
-def select_toolset(agent_description):
+def select_toolset(agent_description: str) -> dict:
     """
     Suggest an initial set of tools for a proposed agent based on its description.
 
@@ -51,7 +53,7 @@ def select_toolset(agent_description):
     return {"tools": [], "status": "success"}
 
 
-def risk_assessment(agent_description):
+def risk_assessment(agent_description: str) -> dict:
     """
     Assess technical or safety risks for a proposed agent.
 

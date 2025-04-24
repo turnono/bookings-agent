@@ -1,6 +1,6 @@
 import os
 from google.adk.agents import Agent, LlmAgent
-from google.adk.tools import agent_tool
+from google.adk.tools import agent_tool, FunctionTool
 from dotenv import load_dotenv
 
 from simulation_guide.prompt import SIMULATION_GUIDE_INSTRUCTION
@@ -21,10 +21,9 @@ root_agent = LlmAgent(
     instruction=SIMULATION_GUIDE_INSTRUCTION,
     tools=[agent_tool.AgentTool(search_thomas_eel_agent),
            agent_tool.AgentTool(coding_steve_lanewood_agent),
-           agent_tool.AgentTool(taskmaster_franklin_covey_agent),
            count_characters,
            set_user_pref,
-           store_memory,
+           FunctionTool(store_memory),
            current_time,
            ],
     sub_agents=[

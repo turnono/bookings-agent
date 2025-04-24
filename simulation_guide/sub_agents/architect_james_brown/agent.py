@@ -7,6 +7,10 @@ from .prompts import TECH_ARCHITECT_INSTRUCTION
 from .tools import identify_capability_gap, propose_agent_spec, select_toolset, risk_assessment
 from simulation_guide.tools import store_memory
 
+# Helper to always use the correct agent name
+def architect_store_memory(user_id: str, session_id: str, memory_type: str, content: dict) -> None:
+    return store_memory(user_id, session_id, memory_type, content, agent_name="architect_james_brown")
+
 # Define the core instruction for the Tech Architect Agent.
 # It should guide the LLM to produce a structured blueprint.
 architect_james_brown_agent = LlmAgent(
@@ -19,7 +23,7 @@ architect_james_brown_agent = LlmAgent(
         FunctionTool(propose_agent_spec),
         FunctionTool(select_toolset),
         FunctionTool(risk_assessment),
-        store_memory
+        FunctionTool(architect_store_memory)
     ],
     output_key="architect_james_brown_output"  # Store output in session state with this key
 )
