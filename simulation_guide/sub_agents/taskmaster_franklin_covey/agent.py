@@ -5,6 +5,7 @@ from google.adk.tools import FunctionTool
 from simulation_guide.models import DEFAULT_MODEL
 from .prompts import TASK_MASTER_INSTRUCTION
 from .tools import break_down_tasks, prioritize_tasks, set_deadline, summarize_progress
+from simulation_guide.tools import store_memory
 
 # Define the core instruction for the TaskMaster Agent.
 taskmaster_franklin_covey_agent = LlmAgent(
@@ -16,7 +17,8 @@ taskmaster_franklin_covey_agent = LlmAgent(
         FunctionTool(break_down_tasks),
         FunctionTool(prioritize_tasks),
         FunctionTool(set_deadline),
-        FunctionTool(summarize_progress)
+        FunctionTool(summarize_progress),
+        store_memory
     ],
     output_key="taskmaster_franklin_covey_output"  # Store output in session state with this key
 )

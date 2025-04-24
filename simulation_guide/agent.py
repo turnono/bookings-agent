@@ -4,7 +4,7 @@ from google.adk.tools import agent_tool
 from dotenv import load_dotenv
 
 from simulation_guide.prompt import SIMULATION_GUIDE_INSTRUCTION
-from simulation_guide.tools import count_characters, current_time, set_user_pref
+from simulation_guide.tools import count_characters, current_time, set_user_pref, store_memory
 from simulation_guide.models import DEFAULT_MODEL
 from simulation_guide.sub_agents.architect_james_brown.agent import architect_james_brown_agent
 from simulation_guide.sub_agents.taskmaster_franklin_covey.agent import taskmaster_franklin_covey_agent
@@ -24,6 +24,7 @@ root_agent = LlmAgent(
            agent_tool.AgentTool(taskmaster_franklin_covey_agent),
            count_characters,
            set_user_pref,
+           store_memory,
            current_time,
            ],
     sub_agents=[

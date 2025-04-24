@@ -5,6 +5,7 @@ from google.adk.tools import FunctionTool
 from simulation_guide.models import DEFAULT_MODEL
 from .prompts import TECH_ARCHITECT_INSTRUCTION
 from .tools import identify_capability_gap, propose_agent_spec, select_toolset, risk_assessment
+from simulation_guide.tools import store_memory
 
 # Define the core instruction for the Tech Architect Agent.
 # It should guide the LLM to produce a structured blueprint.
@@ -17,7 +18,8 @@ architect_james_brown_agent = LlmAgent(
         FunctionTool(identify_capability_gap),
         FunctionTool(propose_agent_spec),
         FunctionTool(select_toolset),
-        FunctionTool(risk_assessment)
+        FunctionTool(risk_assessment),
+        store_memory
     ],
     output_key="architect_james_brown_output"  # Store output in session state with this key
 )

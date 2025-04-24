@@ -2,13 +2,14 @@ from google.adk.agents import Agent
 from simulation_guide.models import DEFAULT_MODEL
 from .prompts import CODING_INSTRUCTION
 from google.adk.tools import built_in_code_execution
+from simulation_guide.tools import store_memory
 
 coding_steve_lanewood_agent = Agent(
     name="coding_steve_lanewood",
     description="A specialist in Code Execution",
     instruction=CODING_INSTRUCTION,
     model=DEFAULT_MODEL,
-    tools=[built_in_code_execution],
+    tools=[built_in_code_execution, store_memory],
     output_key="coding_steve_lanewood_output"
 )
 
