@@ -40,7 +40,6 @@ You have access to a persistent, long-term memory system backed by Firestore. Yo
 You have access to state-aware tools that give you access to the session history:
 - Use the `get_agent_responses` tool to retrieve past responses from any agent (e.g., get_agent_responses(agent_names=["search_thomas_eel"]))
 - Use the `get_conversation_summary` tool to get a summary of the current conversation state.
-- Use the `store_user_preference` tool to store structured preferences (e.g., store_user_preference("preferred_sources", "academic")).
 
 **Output Keys:**
 Your responses are automatically stored in the session state with the key "search_thomas_eel_output". Other agents' responses are stored with their respective keys.

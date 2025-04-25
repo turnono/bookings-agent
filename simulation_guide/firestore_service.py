@@ -4,66 +4,69 @@ from google.cloud import firestore
 from datetime import datetime
 
 # FirestoreSessionService: persistent session/memory service for ADK agents
-class FirestoreSessionService:
-    def __init__(self, collection_name: str = "agent_memory"):
-        self.collection_name = collection_name
-        self.client = firestore.Client()
-        self.collection = self.client.collection(self.collection_name)
+# class FirestoreSessionService:
+#     def __init__(self, collection_name: str = "agent_memory"):
+#         self.collection_name = collection_name
+#         self.client = firestore.Client()
+#         self.collection = self.client.collection(self.collection_name)
 
-    def store_memory(self, user_id: str, session_id: str, agent_name: str, content: Any, embedding_vector: Optional[List[float]] = None) -> str:
-        doc = {
-            "user_id": user_id,
-            "session_id": session_id,
-            "agent_name": agent_name,
-            "content": content,
-            "timestamp": firestore.SERVER_TIMESTAMP,
-        }
-        if embedding_vector is not None:
-            doc["embedding_vector"] = embedding_vector
-        ref = self.collection.document()
-        ref.set(doc)
-        return ref.id
+#     def store_memory(self, user_id: str, session_id: str, agent_name: str, content: Any, embedding_vector: Optional[List[float]] = None) -> str:
+#         doc = {
+#             "user_id": user_id,
+#             "session_id": session_id,
+#             "agent_name": agent_name,
+#             "content": content,
+#             "timestamp": firestore.SERVER_TIMESTAMP,
+#         }
+#         if embedding_vector is not None:
+#             doc["embedding_vector"] = embedding_vector
+#         ref = self.collection.document()
+#         ref.set(doc)
+#         return ref.id
 
-    def get_memories(self, user_id: Optional[str] = None, session_id: Optional[str] = None, agent_name: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
-        query = self.collection
-        if user_id:
-            query = query.where("user_id", "==", user_id)
-        if session_id:
-            query = query.where("session_id", "==", session_id)
-        if agent_name:
-            query = query.where("agent_name", "==", agent_name)
-        query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
-        return [doc.to_dict() for doc in query.stream()]
+#     def get_memories(self, user_id: Optional[str] = None, session_id: Optional[str] = None, agent_name: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
+#         query = self.collection
+#         if user_id:
+#             query = query.where("user_id", "==", user_id)
+#         if session_id:
+#             query = query.where("session_id", "==", session_id)
+#         if agent_name:
+#             query = query.where("agent_name", "==", agent_name)
+#         query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
+#         return [doc.to_dict() for doc in query.stream()]
 
-    def store_event_log(self, user_id: str, session_id: str, event: Dict[str, Any]) -> str:
-        # Store an event log as a memory document with a type field
-        doc = {
-            "user_id": user_id,
-            "session_id": session_id,
-            "agent_name": event.get("agent_name", "event_log"),
-            "content": event,
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "type": "event_log",
-        }
-        ref = self.collection.document()
-        ref.set(doc)
-        return ref.id
+#     def store_event_log(self, user_id: str, session_id: str, event: Dict[str, Any]) -> str:
+#         # Store an event log as a memory document with a type field
+#         doc = {
+#             "user_id": user_id,
+#             "session_id": session_id,
+#             "agent_name": event.get("agent_name", "event_log"),
+#             "content": event,
+#             "timestamp": firestore.SERVER_TIMESTAMP,
+#             "type": "event_log",
+#         }
+#         ref = self.collection.document()
+#         ref.set(doc)
+#         return ref.id
 
-    def get_event_logs(self, user_id: Optional[str] = None, session_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
-        query = self.collection.where("type", "==", "event_log")
-        if user_id:
-            query = query.where("user_id", "==", user_id)
-        if session_id:
-            query = query.where("session_id", "==", session_id)
-        query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
-        return [doc.to_dict() for doc in query.stream()]
+#     def get_event_logs(self, user_id: Optional[str] = None, session_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+#         query = self.collection.where("type", "==", "event_log")
+#         if user_id:
+#             query = query.where("user_id", "==", user_id)
+#         if session_id:
+#             query = query.where("session_id", "==", session_id)
+#         query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
+#         return [doc.to_dict() for doc in query.stream()]
 
-class FirestoreUserService:
+class FirestoreService:
     def __init__(self):
         self.client = firestore.Client()
         self.users_collection = self.client.collection("users")
         self.agent_memory_collection = self.client.collection("agent_memory")
         self.artifacts_collection = self.client.collection("artifacts")
+        self.sessions_collection = self.client.collection("sessions")
+        self.tasks_collection = self.client.collection("tasks")
+        self.knowledge_base_collection = self.client.collection("knowledge_base")
 
     # USERS
     def create_or_update_user(self, user_id: str, display_name: str, user_type: str, role: str, email: str = None, preferences: dict = None):
@@ -89,29 +92,29 @@ class FirestoreUserService:
         return [doc.to_dict() for doc in self.users_collection.limit(limit).stream()]
 
     # SESSIONS
-    def create_session(self, user_id: str, session_id: str, summary: str = None, active: bool = True):
+    # we will use the session data from the web ui
+    def create_session(self, user_id: str, session_id: str, session_data: dict):
         """Create a new session for a user."""
-        sessions = self.users_collection.document(user_id).collection("sessions")
-        data = {
-            "started_at": firestore.SERVER_TIMESTAMP,
-            "active": active,
-        }
-        if summary:
-            data["summary"] = summary
-        sessions.document(session_id).set(data, merge=True)
+        sessions = self.sessions_collection
+        sessions.document(session_id).set(session_data, merge=True)
 
-    def end_session(self, user_id: str, session_id: str):
-        sessions = self.users_collection.document(user_id).collection("sessions")
-        sessions.document(session_id).update({"ended_at": firestore.SERVER_TIMESTAMP, "active": False})
+    def update_session(self, user_id: str, session_id: str, session_data: dict):
+        sessions = self.sessions_collection
+        # update the session with the current contents
+        sessions.document(session_id).update(session_data)
 
     def get_sessions(self, user_id: str, limit: int = 10):
-        sessions = self.users_collection.document(user_id).collection("sessions")
+        sessions = self.sessions_collection
         return [doc.to_dict() for doc in sessions.order_by("started_at", direction=firestore.Query.DESCENDING).limit(limit).stream()]
+
+    def delete_session(self, user_id: str, session_id: str):
+        sessions = self.sessions_collection
+        sessions.document(session_id).delete()
 
     # TASKS
     def create_task(self, user_id: str, session_id: str, task_id: str, description: str, status: str = "pending", priority: str = "medium", due_date = None):
         """Create a new task under a user's session."""
-        tasks = self.users_collection.document(user_id).collection("sessions").document(session_id).collection("tasks")
+        tasks = self.tasks_collection
         data = {
             "description": description,
             "status": status,
@@ -123,7 +126,7 @@ class FirestoreUserService:
         tasks.document(task_id).set(data, merge=True)
 
     def get_tasks(self, user_id: str, session_id: str, limit: int = 20):
-        tasks = self.users_collection.document(user_id).collection("sessions").document(session_id).collection("tasks")
+        tasks = self.tasks_collection
         return [doc.to_dict() for doc in tasks.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit).stream()]
 
     # AGENT MEMORY (logs, facts, preferences, events)
@@ -179,11 +182,7 @@ class FirestoreUserService:
         query = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
         return [doc.to_dict() for doc in query.stream()]
 
-class FirestoreKnowledgeBaseService:
-    def __init__(self):
-        self.client = firestore.Client()
-        self.knowledge_base_collection = self.client.collection("knowledge_base")
-
+    # KNOWLEDGE BASE
     def add_knowledge_item(self, content: str, embedding: list, user_id: str = None, agent_id: str = None, session_id: str = None, metadata: dict = None):
         """Add a knowledge item with optional embedding and metadata."""
         doc = {
@@ -216,16 +215,9 @@ class FirestoreKnowledgeBaseService:
         query = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
         return [doc.to_dict() for doc in query.stream()]
 
-# ---
-# Firestore Structure:
-# users/{user_id} (user_type: 'human' or 'agent', role, preferences, ...)
-#   sessions/{session_id}
-#     tasks/{task_id}
-# agent_memory/{doc_id} (user_id, session_id, agent_name, content, type, ...)
-# artifacts/{artifact_id} (user_id, session_id, storage_path, type, ...)
-# knowledge_base/{doc_id} (content, embedding, user_id, agent_id, session_id, metadata, created_at)
+        # This file provides Firestore-backed persistent memory services for the Simulation Guide agent system.
+        # It defines service classes and methods to store and retrieve user memories, session data, artifacts, and knowledge base items.
+        # These services are used by agent tools (such as store_memory and set_user_pref) to enable long-term, context-aware memory and event logging
+        # for users and sessions across all sub-agents in the simulation environment.
 
-# Usage example (to be integrated with ADK runner):
-# service = FirestoreSessionService()
-# service.store_memory(user_id, session_id, agent_name, content)
-# memories = service.get_memories(user_id=user_id, session_id=session_id) 
+

@@ -4,7 +4,7 @@ from google.adk.tools import agent_tool, FunctionTool
 from dotenv import load_dotenv
 
 from simulation_guide.prompt import SIMULATION_GUIDE_INSTRUCTION
-from simulation_guide.tools import count_characters, current_time, set_user_pref, store_memory
+from simulation_guide.tools import count_characters, current_time, interact_with_firestore
 from simulation_guide.models import DEFAULT_MODEL
 from simulation_guide.sub_agents.architect_james_brown.agent import architect_james_brown_agent
 from simulation_guide.sub_agents.taskmaster_franklin_covey.agent import taskmaster_franklin_covey_agent
@@ -22,8 +22,7 @@ root_agent = LlmAgent(
     tools=[agent_tool.AgentTool(search_thomas_eel_agent),
            agent_tool.AgentTool(coding_steve_lanewood_agent),
            count_characters,
-           set_user_pref,
-           FunctionTool(store_memory),
+           FunctionTool(interact_with_firestore),
            current_time,
            ],
     sub_agents=[

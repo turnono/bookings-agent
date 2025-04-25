@@ -1,7 +1,7 @@
-from simulation_guide.firestore_memory_service import FirestoreUserService
-from typing import Optional
+from simulation_guide.firestore_service import FirestoreService
+from typing import Optional, Dict, Any
 
-def store_memory(
+def interact_with_firestore(
     user_id: str,
     session_id: str,
     memory_type: str,
@@ -17,5 +17,6 @@ def store_memory(
         content (dict): The memory content.
         agent_name (str, optional): The agent's name.
     """
-    service = FirestoreUserService()
-    service.store_agent_memory(user_id, session_id, agent_name, content, memory_type=memory_type) 
+    service = FirestoreService()
+    service.store_agent_memory(user_id, session_id, agent_name, content, memory_type=memory_type)
+    return 
