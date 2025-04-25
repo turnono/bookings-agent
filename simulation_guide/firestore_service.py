@@ -2,62 +2,6 @@ import os
 from typing import Any, Dict, List, Optional
 from google.cloud import firestore
 from datetime import datetime
-
-# FirestoreSessionService: persistent session/memory service for ADK agents
-# class FirestoreSessionService:
-#     def __init__(self, collection_name: str = "agent_memory"):
-#         self.collection_name = collection_name
-#         self.client = firestore.Client()
-#         self.collection = self.client.collection(self.collection_name)
-
-#     def store_memory(self, user_id: str, session_id: str, agent_name: str, content: Any, embedding_vector: Optional[List[float]] = None) -> str:
-#         doc = {
-#             "user_id": user_id,
-#             "session_id": session_id,
-#             "agent_name": agent_name,
-#             "content": content,
-#             "timestamp": firestore.SERVER_TIMESTAMP,
-#         }
-#         if embedding_vector is not None:
-#             doc["embedding_vector"] = embedding_vector
-#         ref = self.collection.document()
-#         ref.set(doc)
-#         return ref.id
-
-#     def get_memories(self, user_id: Optional[str] = None, session_id: Optional[str] = None, agent_name: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
-#         query = self.collection
-#         if user_id:
-#             query = query.where("user_id", "==", user_id)
-#         if session_id:
-#             query = query.where("session_id", "==", session_id)
-#         if agent_name:
-#             query = query.where("agent_name", "==", agent_name)
-#         query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
-#         return [doc.to_dict() for doc in query.stream()]
-
-#     def store_event_log(self, user_id: str, session_id: str, event: Dict[str, Any]) -> str:
-#         # Store an event log as a memory document with a type field
-#         doc = {
-#             "user_id": user_id,
-#             "session_id": session_id,
-#             "agent_name": event.get("agent_name", "event_log"),
-#             "content": event,
-#             "timestamp": firestore.SERVER_TIMESTAMP,
-#             "type": "event_log",
-#         }
-#         ref = self.collection.document()
-#         ref.set(doc)
-#         return ref.id
-
-#     def get_event_logs(self, user_id: Optional[str] = None, session_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
-#         query = self.collection.where("type", "==", "event_log")
-#         if user_id:
-#             query = query.where("user_id", "==", user_id)
-#         if session_id:
-#             query = query.where("session_id", "==", session_id)
-#         query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
-#         return [doc.to_dict() for doc in query.stream()]
-
 class FirestoreService:
     def __init__(self):
         self.client = firestore.Client()
@@ -214,10 +158,3 @@ class FirestoreService:
             query = query.where("metadata.tags", "array_contains_any", tags)
         query = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
         return [doc.to_dict() for doc in query.stream()]
-
-        # This file provides Firestore-backed persistent memory services for the Simulation Guide agent system.
-        # It defines service classes and methods to store and retrieve user memories, session data, artifacts, and knowledge base items.
-        # These services are used by agent tools (such as store_memory and set_user_pref) to enable long-term, context-aware memory and event logging
-        # for users and sessions across all sub-agents in the simulation environment.
-
-
