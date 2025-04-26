@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Optional
 from google.cloud import firestore
 from datetime import datetime
 from google.cloud.firestore_v1.transforms import Sentinel
+import firebase_admin
+from firebase_admin import credentials, firestore as admin_firestore
 
 def sanitize_sentinel(data: Any) -> Any:
     """
@@ -255,3 +257,30 @@ class FirestoreService:
             results = [doc for doc in results if all(tag in doc.get("tags", []) for tag in filters["tags"])]
             
         return results
+
+# Firebase app instance
+_firebase_app = None
+
+def get_firestore_client():
+    """
+    Get a Firestore client instance.
+    Initializes Firebase Admin if it hasn't been initialized yet.
+    
+    Returns:
+        A Firestore client instance
+    """
+    global _firebase_app
+    
+    # Initialize Firebase Admin if not already initialized
+    if not _firebase_app:
+        try:
+            # Check if any Firebase app already exists
+            _firebase_app = firebase_admin.get_app()
+        except ValueError:
+            # If no app exists, initialize with default credentials
+            # This will use Application Default Credentials or the GOOGLE_APPLICATION_CREDENTIALS 
+            # environment variable if set
+            _firebase_app = firebase_admin.initialize_app()
+    
+    # Return a Firestore client
+    return admin_firestore.client()

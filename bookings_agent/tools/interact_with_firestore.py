@@ -3,178 +3,338 @@ from typing import Optional, Dict, Any, List, Union
 from google.cloud.firestore_v1.transforms import Sentinel
 import datetime
 from google.adk.tools import ToolContext
+import json
+import os
+import uuid
+import firebase_admin
+from google.cloud.firestore import Client, DocumentReference
+from firebase_admin import firestore, initialize_app
+from absl import logging
+
+from bookings_agent.firestore_service import get_firestore_client
+
+BASEDIR = os.path.abspath(os.path.dirname(__file__))
+
+# Constants for collection names
+MEMORIES_COLLECTION = "booking_memories"  # Updated namespace for bookings
+BOOKINGS_COLLECTION = "booking_bookings"  # New collection for bookings
+VALIDATIONS_COLLECTION = "booking_validations"  # New collection for validations
 
 def sanitize_firestore_data(data: Any) -> Any:
     """
-    Sanitize Firestore data to make it serializable.
-    Handles special Firestore types like SERVER_TIMESTAMP.
+    Recursively sanitize data to ensure it's compatible with Firestore.
     
     Args:
         data: The data to sanitize
         
     Returns:
-        Serializable data
+        The sanitized data
     """
-    # We now use the centralized sanitize_sentinel function from firestore_service
-    return sanitize_sentinel(data)
+    if isinstance(data, dict):
+        return {k: sanitize_firestore_data(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_firestore_data(item) for item in data]
+    elif isinstance(data, (int, float, bool, str, type(None))):
+        return data
+    else:
+        # Convert unsupported types to strings
+        return str(data)
 
-def interact_with_firestore(
-    operation: str,
-    args: Dict[str, Any],
-    tool_context: ToolContext = None
-) -> Dict[str, Any]:
+def interact_with_firestore(operation: str, args: dict) -> dict:
     """
-    Safely execute Firestore operations on tasks and memories as requested.
-    Use only the specific Firestore service functions.
-    Modify only what is necessary, nothing more.
+    Interact with Firestore to store or retrieve data.
+    
+    Operations:
+    - "memorize": Store a memory
+    - "get_memory": Get a specific memory by ID
+    - "list_memories": List memories with optional filters
+    - "update_memory": Update an existing memory
+    - "delete_memory": Delete a memory
+    - "save_booking": Create or update a booking
+    - "get_booking": Get a booking by ID
+    - "list_bookings": List bookings with optional filters
+    - "update_booking": Update a booking
+    - "delete_booking": Delete a booking
+    - "save_validation": Create or update a validation record
+    - "get_validation": Get a validation record by ID
+    - "list_validations": List validation records with optional filters
+    - "update_validation": Update a validation record
+    - "delete_validation": Delete a validation record
     
     Args:
-        operation (str): The Firestore operation to perform (e.g., 'save_task', 'memorize')
-        args (Dict): Arguments required for the specific operation
-        tool_context (ToolContext, optional): The ADK tool context, containing session information
+        operation: The operation to perform
+        args: The arguments for the operation
         
     Returns:
-        Dict: Response containing success status and any requested data
+        The result of the operation
     """
-    service = FirestoreService()
+    client = get_firestore_client()
     
-    # Initialize response
-    response = {
-        "success": False,
-        "data": None,
-        "error": None
-    }
+    # Clean up the args to ensure they're compatible with Firestore
+    clean_args = sanitize_firestore_data(args)
     
-    try:
-        # Sanitize any Sentinel objects in the input arguments
-        args = sanitize_firestore_data(args)
+    if operation == "memorize":
+        # Store a memory
+        memory_id = clean_args.get("id", str(uuid.uuid4()))
+        memory_type = clean_args.get("type", "fact")
+        content = clean_args.get("content", {})
+        tags = clean_args.get("tags", [])
         
-        # Create a copy to avoid modifying the original args
-        args_copy = args.copy()
-        
-        # Extract session information from tool_context if available
-        user_id = None
-        session_id = None
-        
-        if tool_context:
-            # First try to get from session object directly
-            if hasattr(tool_context, "session") and tool_context.session:
-                user_id = getattr(tool_context.session, "user_id", None)
-                session_id = getattr(tool_context.session, "id", None)
-            
-            # Then try from state
-            if not user_id and hasattr(tool_context, "state"):
-                user_id = tool_context.state.get("user_id")
-            
-            if not session_id and hasattr(tool_context, "state"):
-                session_id = tool_context.state.get("session_id")
-            
-            # Fallback to direct attributes
-            if not user_id and hasattr(tool_context, "user_id"):
-                user_id = tool_context.user_id
-            
-            if not session_id and hasattr(tool_context, "session_id"):
-                session_id = tool_context.session_id
-                
-            # For creation operations, ensure user_id and session_id are set
-            if operation in ["save_task", "memorize"]:
-                if user_id and "user_id" not in args_copy:
-                    args_copy["user_id"] = user_id
-                if session_id and "session_id" not in args_copy:
-                    args_copy["session_id"] = session_id
-                    
-            # For filtering operations, add user_id and session_id to filters
-            if operation in ["list_tasks", "list_memories"]:
-                if "filters" not in args_copy:
-                    args_copy["filters"] = {}
-                    
-                if user_id and "user_id" not in args_copy.get("filters", {}):
-                    args_copy.setdefault("filters", {})["user_id"] = user_id
-                if session_id and "session_id" not in args_copy.get("filters", {}):
-                    args_copy.setdefault("filters", {})["session_id"] = session_id
-            
-            # Debug: log session information for troubleshooting
-            print(f"Using session info - user_id: {user_id}, session_id: {session_id}")
-        
-        # Task operations
-        if operation == "save_task":
-            # Set defaults for required fields
-            if "status" not in args_copy:
-                args_copy["status"] = "pending"
-            if "created_at" not in args_copy:
-                args_copy["created_at"] = datetime.datetime.now().isoformat()
-                
-            task_id = service.save_task(args_copy)
-            response["success"] = True
-            response["data"] = {"task_id": task_id}
-            
-            # Store the last created task ID in session state if context available
-            if tool_context and hasattr(tool_context, "state"):
-                tool_context.state["last_task_id"] = task_id
-                
-        elif operation == "get_task":
-            task = service.get_task(args_copy.get("task_id"))
-            response["success"] = True
-            response["data"] = task  # Already sanitized by the service
-            
-        elif operation == "update_task":
-            service.update_task(args_copy.get("task_id"), args_copy.get("updates", {}))
-            response["success"] = True
-            
-        elif operation == "delete_task":
-            service.delete_task(args_copy.get("task_id"))
-            response["success"] = True
-            
-        elif operation == "list_tasks":
-            tasks = service.list_tasks(args_copy.get("filters"))
-            response["success"] = True
-            response["data"] = tasks  # Already sanitized by the service
-            
-        # Memory operations
-        elif operation == "memorize":
-            if "created_at" not in args_copy:
-                args_copy["created_at"] = datetime.datetime.now().isoformat()
-                
-            memory_id = service.memorize(args_copy)
-            response["success"] = True
-            response["data"] = {"memory_id": memory_id}
-            
-            # Store the last created memory ID in session state if context available
-            if tool_context and hasattr(tool_context, "state"):
-                tool_context.state["last_memory_id"] = memory_id
-                
-        elif operation == "get_memory":
-            memory = service.get_memory(args_copy.get("memory_id"))
-            response["success"] = True
-            response["data"] = memory  # Already sanitized by the service
-            
-        elif operation == "update_memory":
-            service.update_memory(args_copy.get("memory_id"), args_copy.get("updates", {}))
-            response["success"] = True
-            
-        elif operation == "delete_memory":
-            service.delete_memory(args_copy.get("memory_id"))
-            response["success"] = True
-            
-        elif operation == "list_memories":
-            memories = service.list_memories(args_copy.get("filters"))
-            response["success"] = True
-            response["data"] = memories  # Already sanitized by the service
-            
-        else:
-            # Safety fallback for unsupported operations
-            response["error"] = {
-                "code": "unsupported_operation",
-                "message": f"The operation '{operation}' is not supported by the interact_with_firestore tool."
-            }
-            
-    except Exception as e:
-        response["error"] = {
-            "code": "execution_error",
-            "message": str(e)
+        memory_data = {
+            "id": memory_id,
+            "type": memory_type,
+            "content": content,
+            "tags": tags,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP
         }
-        print(f"Error in interact_with_firestore: {str(e)}")
+        
+        client.collection(MEMORIES_COLLECTION).document(memory_id).set(memory_data)
+        return {"success": True, "id": memory_id, "message": "Memory stored successfully"}
     
-    return response
+    elif operation == "get_memory":
+        # Get a specific memory by ID
+        memory_id = clean_args.get("id")
+        if not memory_id:
+            return {"success": False, "message": "Memory ID is required"}
+        
+        doc = client.collection(MEMORIES_COLLECTION).document(memory_id).get()
+        if doc.exists:
+            return {"success": True, "memory": doc.to_dict()}
+        else:
+            return {"success": False, "message": "Memory not found"}
+    
+    elif operation == "list_memories":
+        # List memories with optional filters
+        filters = clean_args.get("filters", {})
+        
+        # Start with the memories collection
+        query = client.collection(MEMORIES_COLLECTION)
+        
+        # Apply filters if any
+        for field, value in filters.items():
+            if isinstance(value, list):
+                # For array fields like tags, use array_contains_any
+                query = query.where(field, "array_contains_any", value)
+            else:
+                # For other fields, use equality
+                query = query.where(field, "==", value)
+        
+        # Execute the query
+        docs = query.stream()
+        memories = [doc.to_dict() for doc in docs]
+        
+        return {"success": True, "memories": memories}
+    
+    elif operation == "update_memory":
+        # Update an existing memory
+        memory_id = clean_args.get("id")
+        if not memory_id:
+            return {"success": False, "message": "Memory ID is required"}
+        
+        updates = clean_args.get("updates", {})
+        if not updates:
+            return {"success": False, "message": "No updates provided"}
+        
+        # Add the updated_at timestamp
+        updates["updated_at"] = firestore.SERVER_TIMESTAMP
+        
+        # Update the memory
+        client.collection(MEMORIES_COLLECTION).document(memory_id).update(updates)
+        
+        return {"success": True, "message": "Memory updated successfully"}
+    
+    elif operation == "delete_memory":
+        # Delete a memory
+        memory_id = clean_args.get("id")
+        if not memory_id:
+            return {"success": False, "message": "Memory ID is required"}
+        
+        client.collection(MEMORIES_COLLECTION).document(memory_id).delete()
+        
+        return {"success": True, "message": "Memory deleted successfully"}
+    
+    elif operation == "save_booking":
+        # Save a booking
+        booking_id = clean_args.get("id", str(uuid.uuid4()))
+        description = clean_args.get("description", "")
+        date = clean_args.get("date", "")
+        time = clean_args.get("time", "")
+        duration = clean_args.get("duration", 0)
+        resource_id = clean_args.get("resource_id", "")
+        user_id = clean_args.get("user_id", "")
+        session_id = clean_args.get("session_id", "")
+        status = clean_args.get("status", "pending")
+        tags = clean_args.get("tags", [])
+        
+        booking_data = {
+            "id": booking_id,
+            "description": description,
+            "date": date,
+            "time": time,
+            "duration": duration,
+            "resource_id": resource_id,
+            "user_id": user_id,
+            "session_id": session_id,
+            "status": status,
+            "tags": tags,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP
+        }
+        
+        client.collection(BOOKINGS_COLLECTION).document(booking_id).set(booking_data)
+        return {"success": True, "id": booking_id, "message": "Booking saved successfully"}
+    
+    elif operation == "get_booking":
+        # Get a specific booking by ID
+        booking_id = clean_args.get("id")
+        if not booking_id:
+            return {"success": False, "message": "Booking ID is required"}
+        
+        doc = client.collection(BOOKINGS_COLLECTION).document(booking_id).get()
+        if doc.exists:
+            return {"success": True, "booking": doc.to_dict()}
+        else:
+            return {"success": False, "message": "Booking not found"}
+    
+    elif operation == "list_bookings":
+        # List bookings with optional filters
+        filters = clean_args.get("filters", {})
+        
+        # Start with the bookings collection
+        query = client.collection(BOOKINGS_COLLECTION)
+        
+        # Apply filters if any
+        for field, value in filters.items():
+            if isinstance(value, list):
+                # For array fields like tags, use array_contains_any
+                query = query.where(field, "array_contains_any", value)
+            else:
+                # For other fields, use equality
+                query = query.where(field, "==", value)
+        
+        # Execute the query
+        docs = query.stream()
+        bookings = [doc.to_dict() for doc in docs]
+        
+        return {"success": True, "bookings": bookings}
+    
+    elif operation == "update_booking":
+        # Update an existing booking
+        booking_id = clean_args.get("booking_id")
+        if not booking_id:
+            return {"success": False, "message": "Booking ID is required"}
+        
+        updates = clean_args.get("updates", {})
+        if not updates:
+            return {"success": False, "message": "No updates provided"}
+        
+        # Add the updated_at timestamp
+        updates["updated_at"] = firestore.SERVER_TIMESTAMP
+        
+        # Update the booking
+        client.collection(BOOKINGS_COLLECTION).document(booking_id).update(updates)
+        
+        return {"success": True, "message": "Booking updated successfully"}
+    
+    elif operation == "delete_booking":
+        # Delete a booking
+        booking_id = clean_args.get("id")
+        if not booking_id:
+            return {"success": False, "message": "Booking ID is required"}
+        
+        client.collection(BOOKINGS_COLLECTION).document(booking_id).delete()
+        
+        return {"success": True, "message": "Booking deleted successfully"}
+    
+    elif operation == "save_validation":
+        # Save a validation record
+        validation_id = clean_args.get("id", str(uuid.uuid4()))
+        booking_id = clean_args.get("booking_id", "")
+        status = clean_args.get("status", "")
+        message = clean_args.get("message", "")
+        user_id = clean_args.get("user_id", "")
+        session_id = clean_args.get("session_id", "")
+        tags = clean_args.get("tags", [])
+        
+        validation_data = {
+            "id": validation_id,
+            "booking_id": booking_id,
+            "status": status,
+            "message": message,
+            "user_id": user_id,
+            "session_id": session_id,
+            "tags": tags,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP
+        }
+        
+        client.collection(VALIDATIONS_COLLECTION).document(validation_id).set(validation_data)
+        return {"success": True, "id": validation_id, "message": "Validation saved successfully"}
+    
+    elif operation == "get_validation":
+        # Get a specific validation by ID
+        validation_id = clean_args.get("id")
+        if not validation_id:
+            return {"success": False, "message": "Validation ID is required"}
+        
+        doc = client.collection(VALIDATIONS_COLLECTION).document(validation_id).get()
+        if doc.exists:
+            return {"success": True, "validation": doc.to_dict()}
+        else:
+            return {"success": False, "message": "Validation not found"}
+    
+    elif operation == "list_validations":
+        # List validations with optional filters
+        filters = clean_args.get("filters", {})
+        
+        # Start with the validations collection
+        query = client.collection(VALIDATIONS_COLLECTION)
+        
+        # Apply filters if any
+        for field, value in filters.items():
+            if isinstance(value, list):
+                # For array fields like tags, use array_contains_any
+                query = query.where(field, "array_contains_any", value)
+            else:
+                # For other fields, use equality
+                query = query.where(field, "==", value)
+        
+        # Execute the query
+        docs = query.stream()
+        validations = [doc.to_dict() for doc in docs]
+        
+        return {"success": True, "validations": validations}
+    
+    elif operation == "update_validation":
+        # Update an existing validation
+        validation_id = clean_args.get("validation_id")
+        if not validation_id:
+            return {"success": False, "message": "Validation ID is required"}
+        
+        updates = clean_args.get("updates", {})
+        if not updates:
+            return {"success": False, "message": "No updates provided"}
+        
+        # Add the updated_at timestamp
+        updates["updated_at"] = firestore.SERVER_TIMESTAMP
+        
+        # Update the validation
+        client.collection(VALIDATIONS_COLLECTION).document(validation_id).update(updates)
+        
+        return {"success": True, "message": "Validation updated successfully"}
+    
+    elif operation == "delete_validation":
+        # Delete a validation
+        validation_id = clean_args.get("id")
+        if not validation_id:
+            return {"success": False, "message": "Validation ID is required"}
+        
+        client.collection(VALIDATIONS_COLLECTION).document(validation_id).delete()
+        
+        return {"success": True, "message": "Validation deleted successfully"}
+    
+    else:
+        return {"success": False, "message": f"Unknown operation: {operation}"}
     
     

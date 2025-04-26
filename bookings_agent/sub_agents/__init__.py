@@ -14,3 +14,20 @@
 
 """Sub-agents package initialization."""
 
+# Create empty directories for our agents if they don't exist
+import os
+import pathlib
+
+# Get the directory where this __init__.py file is located
+current_dir = pathlib.Path(__file__).parent.absolute()
+
+# Create the booking_validator directory if it doesn't exist
+booking_validator_dir = current_dir / "booking_validator"
+os.makedirs(booking_validator_dir, exist_ok=True)
+
+# Create an __init__.py file in the booking_validator directory if it doesn't exist
+booking_validator_init = booking_validator_dir / "__init__.py"
+if not booking_validator_init.exists():
+    with open(booking_validator_init, "w") as f:
+        f.write('"""Booking Validator Agent package."""\n')
+

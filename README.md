@@ -1,256 +1,104 @@
-# Bookings Agent
+# Booking Agent
 
-A Python-based intelligent agent built with Google's Agent Development Kit (ADK) that helps users manage and schedule appointments, meetings, and bookings. The agent uses Google Vertex AI for its language model capabilities and provides specialized sub-agents for different booking-related tasks.
+A specialized agent system for guiding social media users through the appointment booking process, with intelligent screening and calendar protection.
 
-## Project Overview
+## Purpose
 
-This project implements a multi-agent system with the following components:
+The Booking Agent system serves as an intelligent intermediary between social media inquiries and your calendar:
 
-- **Root Agent**: Coordinates the overall booking experience and manages sub-agents
-- **Sub-Agents**:
-  - **Calendar Manager**: Handles scheduling, conflicts, and calendar operations
-  - **Contact Manager**: Manages contact information for bookings
-  - **Booking Assistant**: Processes booking requests and preferences
-  - **Reminder Service**: Handles notifications and reminders
+1. **Social Media Gateway**: Efficiently handles appointment booking requests from users coming from social media platforms.
 
-The system uses Firestore for data persistence, storing booking information, user preferences, and availability across conversations.
+2. **User Screening**: Filters users by checking topic relevance and seriousness before showing available times.
 
-## Project Migration
+3. **Smart Calendar Management**:
 
-This project was migrated from the simulation-guide-agent project:
+   - Only shows available time slots based on owner preferences
+   - Protects private time (no bookings during blocked times)
+   - Prevents double bookings or calendar conflicts
 
-- All directories were renamed from `simulation_guide` to `bookings_agent`
-- Import statements were updated across all files
-- Configuration was updated in `pyproject.toml` and deployment files
-- A new Git repository was created for this specific implementation
-- Cursor rules in `.cursor/rules/` were updated to reference the new package name and file paths
+4. **Seamless Experience**: Maintains a professional, smooth experience from first message to confirmed booking.
 
-## Prerequisites
+## System Architecture
 
-- Python 3.11+
-- Poetry (Python package manager)
-- Google Cloud account with Vertex AI API enabled
-- Google Cloud CLI (`gcloud`) installed and authenticated
-  - Follow the [official installation guide](https://cloud.google.com/sdk/docs/install) to install gcloud
-  - After installation, run `gcloud init` and `gcloud auth login`
-- Firebase project (for Firestore database)
+The Booking Agent consists of two specialized agents:
 
-## Installation
+1. **Booking Guide Agent (Root)**: Primary agent that screens users, presents available time slots, and handles the booking process.
 
-1. Clone the repository:
+2. **Booking Validator Agent (Sub-agent)**: Specialized agent for validating appointment requests, checking calendar availability, and ensuring they don't conflict with private time.
 
-```bash
-git clone https://github.com/yourusername/bookings-agent.git
-cd bookings-agent
-```
+## Key Features
 
-2. Install Poetry if you haven't already:
+- Thorough user screening before showing available slots
+- Topic relevance verification to ensure alignment with expertise
+- Private time protection to maintain personal boundaries
+- Double booking prevention
+- Smart appointment suggestions based on conversation context
+- Appointment confirmation and reminders
 
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-```
+## Tools
 
-3. Create and activate a virtual environment:
+The root agent (Booking Guide) has access to these function tools:
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
+- **MemoryTool (Firestore)**: Store and retrieve user preferences, booking history, and blocked times
+- **ValidationTool**: Screen appointment requests for relevance and seriousness
+- **CalendarTool**: Check availability while respecting private time
+- **BookingConfirmationTool**: Send appointment confirmations to users
 
-4. Install project dependencies:
+## Firestore Collections
 
-```bash
-poetry install
-```
+All Firestore collections are namespaced for the booking system:
 
-## Architecture Notes for Apple Silicon Macs
-
-If you encounter architecture-related errors (e.g., "incompatible architecture") when installing or running the project:
-
-```bash
-# Check your Python architecture
-python -c "import platform; print(platform.machine())"
-
-# If using x86_64 Python on Apple Silicon, use:
-ARCHFLAGS="-arch x86_64" pip install pydantic pydantic-core
-ARCHFLAGS="-arch x86_64" poetry install
-
-# Or for native ARM64:
-# Make sure you're using ARM64 Python first
-# /opt/homebrew/bin/python3 -m venv .venv
-# source .venv/bin/activate
-```
-
-## Configuration
-
-1. Create a `.env` file in the project root with the following variables:
-
-```bash
-GOOGLE_GENAI_USE_VERTEXAI=TRUE
-GOOGLE_CLOUD_PROJECT=your-project-id
-GOOGLE_CLOUD_LOCATION=your-location  # e.g., us-central1
-GOOGLE_CLOUD_STAGING_BUCKET=gs://your-bucket-name
-```
-
-2. Set up Google Cloud authentication:
-
-```bash
-gcloud auth login
-gcloud config set project your-project-id
-```
-
-3. Enable required APIs:
-
-```bash
-gcloud services enable aiplatform.googleapis.com
-```
-
-4. Set up Firebase:
-   - Create a Firebase project in the [Firebase Console](https://console.firebase.google.com/)
-   - Set up Firestore in your project
-   - Download your Firebase service account key and save it as `bookings-agent-service-account.json` in the project root
-
-## Usage
-
-### Local Testing
-
-The project includes deployment scripts to run the agent locally or deploy it to Google Cloud.
-
-#### Local Deployment
-
-Use the local deployment script to test the agent on your development machine:
-
-```bash
-# Run the local deployment script
-python -m deployment.local
-```
-
-Or use the Poetry script shortcut:
-
-```bash
-poetry run python -m deployment.local
-```
-
-This will:
-
-- Initialize Vertex AI with your project settings
-- Create a local app instance
-- Create a test session
-- List available sessions
-- Send a test query to verify functionality
-
-### Remote Deployment
-
-Use the remote deployment script to deploy the agent to Google Cloud:
-
-```bash
-# Deploy the agent to Google Cloud
-python -m deployment.remote --create
-```
-
-After deployment, interact with the agent using:
-
-```bash
-# Create a session
-python -m deployment.remote --create_session --resource_id=your-resource-id
-
-# List sessions
-python -m deployment.remote --list_sessions --resource_id=your-resource-id
-
-# Send a message
-python -m deployment.remote --send --resource_id=your-resource-id --session_id=your-session-id --message="Your question here"
-
-# Clean up (delete deployment)
-python -m deployment.remote --delete --resource_id=your-resource-id
-```
+- **booking_memories**: For storing owner preferences, blocked times, and recurring patterns
+- **booking_bookings**: For tracking appointment details, status, and user information
+- **booking_validations**: For storing validation records and screening results
 
 ## Project Structure
 
 ```
-.
-├── bookings_agent/        # Core agent implementation
-│   ├── agent.py           # Main agent definition
-│   ├── prompt.py          # Agent prompts and instructions
-│   ├── models.py          # Data models
-│   ├── firestore_service.py # Firestore integration
-│   ├── tools/             # Agent tools implementations
-│   └── sub_agents/        # Sub-agent implementations
-├── deployment/            # Deployment scripts
-│   ├── local.py           # Local testing deployment
-│   ├── remote.py          # Google Cloud deployment
-│   └── cleanup.py         # Resource cleanup utilities
-├── main.py                # FastAPI server implementation
-├── .env                   # Environment variables
-├── pyproject.toml         # Python project configuration
-├── poetry.lock            # Poetry dependencies lock file
-├── requirements.txt       # Basic requirements
-├── firebase.json          # Firebase configuration
-├── bookings-agent-service-account.json # Firebase service account
-└── Dockerfile             # Container configuration for deployment
+bookings_agent/
+├── __init__.py
+├── agent.py                      # Root agent definition
+├── prompt.py                     # Root agent prompt
+├── models.py                     # Model definitions
+├── firestore_service.py          # Firestore service
+├── tools/
+│   ├── __init__.py
+│   ├── current_time.py           # Time utility
+│   └── interact_with_firestore.py # Firestore interaction
+└── sub_agents/
+    ├── __init__.py
+    └── booking_validator/        # Booking Validator sub-agent
+        ├── __init__.py
+        ├── agent.py              # Validator agent definition
+        └── prompts.py            # Validator agent prompt
 ```
 
-## Development
+## Booking Process Flow
 
-### Adding New Features
+1. **Initial Screening**: When a user requests an appointment, the agent asks qualifying questions to assess relevance and seriousness.
 
-To add new features to the agent:
+2. **Topic Validation**: The agent verifies that the appointment topic falls within the owner's expertise.
 
-1. **Add new tools**:
+3. **Calendar Check**: If the user passes screening, the agent shows available time slots that respect private time.
 
-   - Create new tool functions in the `bookings_agent/tools/` directory
-   - Register them with the agent in `bookings_agent/agent.py`
+4. **Appointment Details**: The agent collects necessary details for the appointment.
 
-2. **Add new sub-agents**:
+5. **Confirmation**: The appointment is confirmed and added to the calendar, with confirmation sent to the user.
 
-   - Create a new agent module in `bookings_agent/sub_agents/`
-   - Add the sub-agent to the root agent in `bookings_agent/agent.py`
+## Getting Started
 
-3. **Modify prompts**:
+1. Clone the repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Set up Firestore credentials
 
-   - Update agent instructions in `bookings_agent/prompt.py`
+   - Obtain a Google Cloud service account key with Firestore access (JSON file).
+   - Set the environment variable `GOOGLE_APPLICATION_CREDENTIALS` to the path of your service account file before running the app:
 
-4. **Test your changes**:
-   - Run the local deployment script to verify functionality
-   - Use the remote deployment for full-scale testing
+     ```bash
+     export GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/service-account.json
+     ```
 
-### Customizing the Agent
+   - This is required for Firestore access unless you are using the Firestore emulator.
 
-The agent's behavior is primarily controlled by its prompt instructions and tools. To customize:
-
-1. Modify the `BOOKINGS_AGENT_INSTRUCTION` in `prompt.py`
-2. Add or remove tools from the `root_agent` configuration in `agent.py`
-3. Adjust the sub-agent configuration to fit your use case
-
-## Troubleshooting
-
-1. **Authentication Issues**:
-
-   - Ensure you're logged in with `gcloud auth login`
-   - Verify your project ID and location in `.env`
-   - Check that the Vertex AI API is enabled
-
-2. **Deployment Failures**:
-
-   - Check the staging bucket exists and is accessible
-   - Verify all required environment variables are set
-   - Ensure you have the necessary permissions in your Google Cloud project
-
-3. **Firestore Connection Issues**:
-
-   - Verify your service account key file is correctly set up
-   - Check Firestore permissions in your Firebase project
-
-4. **Model Access Issues**:
-   - Ensure the models specified in `models.py` are available in your Vertex AI project
-   - Request model access if needed through Google Cloud Console
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## License
-
-[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+4. Configure your calendar preferences and blocked times
+5. Run the main application: `python main.py`
