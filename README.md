@@ -1,19 +1,19 @@
-# Simulation Guide Agent
+# Bookings Agent
 
-A Python-based intelligent agent built with Google's Agent Development Kit (ADK) that serves as a guide to help users navigate "the simulation." The agent uses Google Vertex AI for its language model capabilities and provides specialized sub-agents for different tasks.
+A Python-based intelligent agent built with Google's Agent Development Kit (ADK) that helps users manage and schedule appointments, meetings, and bookings. The agent uses Google Vertex AI for its language model capabilities and provides specialized sub-agents for different booking-related tasks.
 
 ## Project Overview
 
 This project implements a multi-agent system with the following components:
 
-- **Root Agent**: Coordinates the overall interaction and manages sub-agents
+- **Root Agent**: Coordinates the overall booking experience and manages sub-agents
 - **Sub-Agents**:
-  - **Architect (James Brown)**: Helps with planning and organization
-  - **Taskmaster (Franklin Covey)**: Assists with task management
-  - **Search (Thomas Eel)**: Handles search-related operations
-  - **Coding (Steve Lanewood)**: Provides coding assistance
+  - **Calendar Manager**: Handles scheduling, conflicts, and calendar operations
+  - **Contact Manager**: Manages contact information for bookings
+  - **Booking Assistant**: Processes booking requests and preferences
+  - **Reminder Service**: Handles notifications and reminders
 
-The system uses Firestore for data persistence, storing tasks and memories that help the agent maintain context across conversations.
+The system uses Firestore for data persistence, storing booking information, user preferences, and availability across conversations.
 
 ## Prerequisites
 
@@ -30,8 +30,8 @@ The system uses Firestore for data persistence, storing tasks and memories that 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/turnono/simulation-guide-agent.git
-cd simulation-guide-agent
+git clone https://github.com/yourusername/bookings-agent.git
+cd bookings-agent
 ```
 
 2. Install Poetry if you haven't already:
@@ -40,18 +40,35 @@ cd simulation-guide-agent
 curl -sSL https://install.python-poetry.org | python3 -
 ```
 
-3. Install project dependencies:
+3. Create and activate a virtual environment:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+4. Install project dependencies:
 
 ```bash
 poetry install
 ```
 
-4. Activate the virtual environment:
+## Architecture Notes for Apple Silicon Macs
+
+If you encounter architecture-related errors (e.g., "incompatible architecture") when installing or running the project:
 
 ```bash
-poetry shell
-# Or alternatively:
-# source $(poetry env info --path)/bin/activate
+# Check your Python architecture
+python -c "import platform; print(platform.machine())"
+
+# If using x86_64 Python on Apple Silicon, use:
+ARCHFLAGS="-arch x86_64" pip install pydantic pydantic-core
+ARCHFLAGS="-arch x86_64" poetry install
+
+# Or for native ARM64:
+# Make sure you're using ARM64 Python first
+# /opt/homebrew/bin/python3 -m venv .venv
+# source .venv/bin/activate
 ```
 
 ## Configuration
@@ -81,7 +98,7 @@ gcloud services enable aiplatform.googleapis.com
 4. Set up Firebase:
    - Create a Firebase project in the [Firebase Console](https://console.firebase.google.com/)
    - Set up Firestore in your project
-   - Download your Firebase service account key and save it as `sim-guide-agent-service-account.json` in the project root
+   - Download your Firebase service account key and save it as `bookings-agent-service-account.json` in the project root
 
 ## Usage
 
@@ -141,25 +158,25 @@ python -m deployment.remote --delete --resource_id=your-resource-id
 
 ```
 .
-├── simulation_guide/       # Core agent implementation
-│   ├── agent.py            # Main agent definition
-│   ├── prompt.py           # Agent prompts and instructions
-│   ├── models.py           # Data models
+├── bookings_agent/        # Core agent implementation
+│   ├── agent.py           # Main agent definition
+│   ├── prompt.py          # Agent prompts and instructions
+│   ├── models.py          # Data models
 │   ├── firestore_service.py # Firestore integration
-│   ├── tools/              # Agent tools implementations
-│   └── sub_agents/         # Sub-agent implementations
-├── deployment/             # Deployment scripts
-│   ├── local.py            # Local testing deployment
-│   ├── remote.py           # Google Cloud deployment
-│   └── cleanup.py          # Resource cleanup utilities
-├── main.py                 # FastAPI server implementation
-├── .env                    # Environment variables
-├── pyproject.toml          # Python project configuration
-├── poetry.lock             # Poetry dependencies lock file
-├── requirements.txt        # Basic requirements
-├── firebase.json           # Firebase configuration
-├── sim-guide-agent-service-account.json # Firebase service account
-└── Dockerfile              # Container configuration for deployment
+│   ├── tools/             # Agent tools implementations
+│   └── sub_agents/        # Sub-agent implementations
+├── deployment/            # Deployment scripts
+│   ├── local.py           # Local testing deployment
+│   ├── remote.py          # Google Cloud deployment
+│   └── cleanup.py         # Resource cleanup utilities
+├── main.py                # FastAPI server implementation
+├── .env                   # Environment variables
+├── pyproject.toml         # Python project configuration
+├── poetry.lock            # Poetry dependencies lock file
+├── requirements.txt       # Basic requirements
+├── firebase.json          # Firebase configuration
+├── bookings-agent-service-account.json # Firebase service account
+└── Dockerfile             # Container configuration for deployment
 ```
 
 ## Development
@@ -170,17 +187,17 @@ To add new features to the agent:
 
 1. **Add new tools**:
 
-   - Create new tool functions in the `simulation_guide/tools/` directory
-   - Register them with the agent in `simulation_guide/agent.py`
+   - Create new tool functions in the `bookings_agent/tools/` directory
+   - Register them with the agent in `bookings_agent/agent.py`
 
 2. **Add new sub-agents**:
 
-   - Create a new agent module in `simulation_guide/sub_agents/`
-   - Add the sub-agent to the root agent in `simulation_guide/agent.py`
+   - Create a new agent module in `bookings_agent/sub_agents/`
+   - Add the sub-agent to the root agent in `bookings_agent/agent.py`
 
 3. **Modify prompts**:
 
-   - Update agent instructions in `simulation_guide/prompt.py`
+   - Update agent instructions in `bookings_agent/prompt.py`
 
 4. **Test your changes**:
    - Run the local deployment script to verify functionality
@@ -190,7 +207,7 @@ To add new features to the agent:
 
 The agent's behavior is primarily controlled by its prompt instructions and tools. To customize:
 
-1. Modify the `SIMULATION_GUIDE_INSTRUCTION` in `prompt.py`
+1. Modify the `BOOKINGS_AGENT_INSTRUCTION` in `prompt.py`
 2. Add or remove tools from the `root_agent` configuration in `agent.py`
 3. Adjust the sub-agent configuration to fit your use case
 
