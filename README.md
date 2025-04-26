@@ -15,6 +15,15 @@ This project implements a multi-agent system with the following components:
 
 The system uses Firestore for data persistence, storing booking information, user preferences, and availability across conversations.
 
+## Project Migration
+
+This project was migrated from the simulation-guide-agent project:
+
+- All directories were renamed from `simulation_guide` to `bookings_agent`
+- Import statements were updated across all files
+- Configuration was updated in `pyproject.toml` and deployment files
+- A new Git repository was created for this specific implementation
+
 ## Prerequisites
 
 - Python 3.11+
