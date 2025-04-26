@@ -1,27 +1,27 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
 # Agent Architecture and Tooling
 
 ## Root Agent
-- Defined in [simulation_guide/agent.py](mdc:simulation_guide/agent.py) as `root_agent`.
-- Uses the instruction from [prompt.py](mdc:simulation_guide/prompt.py) and the default model from [models.py](mdc:simulation_guide/models.py).
-- Has access to custom tools (e.g., `count_characters` from [tools/character_counter.py](mdc:simulation_guide/tools/character_counter.py)).
+- Defined in [bookings_agent/agent.py](mdc:bookings_agent/agent.py) as `root_agent`.
+- Uses the instruction from [prompt.py](mdc:bookings_agent/prompt.py) and the default model from [models.py](mdc:bookings_agent/models.py).
+- Has access to custom tools (e.g., `count_characters` from [tools/character_counter.py](mdc:bookings_agent/tools/character_counter.py)).
 - Delegates specialized tasks to sub-agents.
 
 ## Sub-Agents
-- Located in [simulation_guide/sub_agents/](mdc:simulation_guide/sub_agents):
-  - **TaskMaster Franklin Covey** ([taskmaster_franklin_covey/agent.py](mdc:simulation_guide/sub_agents/taskmaster_franklin_covey/agent.py))
+- Located in [bookings_agent/sub_agents/](mdc:bookings_agent/sub_agents):
+  - **TaskMaster Franklin Covey** ([taskmaster_franklin_covey/agent.py](mdc:bookings_agent/sub_agents/taskmaster_franklin_covey/agent.py))
     - Specializes in task breakdown, prioritization, and productivity frameworks.
-    - Uses instruction from [prompts.py](mdc:simulation_guide/sub_agents/taskmaster_franklin_covey/prompts.py).
-  - **Architect James Brown** ([architect_james_brown/agent.py](mdc:simulation_guide/sub_agents/architect_james_brown/agent.py))
+    - Uses instruction from [prompts.py](mdc:bookings_agent/sub_agents/taskmaster_franklin_covey/prompts.py).
+  - **Architect James Brown** ([architect_james_brown/agent.py](mdc:bookings_agent/sub_agents/architect_james_brown/agent.py))
     - Specializes in technical architecture and blueprint design for agents.
-    - Uses instruction from [prompts.py](mdc:simulation_guide/sub_agents/architect_james_brown/prompts.py).
+    - Uses instruction from [prompts.py](mdc:bookings_agent/sub_agents/architect_james_brown/prompts.py).
 
 ## Tool Usage and Limitations
-- Tools are defined in [simulation_guide/tools/](mdc:simulation_guide/tools) and exposed via [tools/__init__.py](mdc:simulation_guide/tools/__init__.py).
+- Tools are defined in [bookings_agent/tools/](mdc:bookings_agent/tools) and exposed via [tools/__init__.py](mdc:bookings_agent/tools/__init__.py).
 - Each tool should have a clear docstring describing its purpose and usage.
 - **ADK Limitation:** Only one built-in tool can be used per root agent; built-in tools cannot be used in sub-agents. Custom tools can be used freely.
 - Tool guidance and differentiation should be provided in agent instructions and tool docstrings for best LLM performance.
