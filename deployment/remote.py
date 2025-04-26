@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from vertexai import agent_engines
 from vertexai.preview import reasoning_engines
 
-from simulation_guide.agent import root_agent
+from bookings_agent.agent import root_agent
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("project_id", None, "GCP project ID.")
@@ -56,7 +56,7 @@ def create() -> None:
             "google-cloud-aiplatform[adk,agent_engines]",
             "litellm"
         ],
-        extra_packages=["./simulation_guide"],
+        extra_packages=["./bookings_agent"],
     )
     print(f"Created remote app: {remote_app.resource_name}")
 

@@ -1,4 +1,4 @@
-from simulation_guide.firestore_service import FirestoreService, sanitize_sentinel
+from bookings_agent.firestore_service import FirestoreService, sanitize_sentinel
 from typing import Optional, Dict, Any, List, Union
 from google.cloud.firestore_v1.transforms import Sentinel
 import datetime

@@ -1,7 +1,7 @@
 [project]
-name = "simulation_guide"
+name = "bookings_agent"
 version = "0.1.0"
-description = "A guide to the simulation"
+description = "An agent for managing bookings and appointments"
 authors = [
     {name = "Abdullah Abrahams", email = "turnono@gmail.com"}
 ]
@@ -21,7 +21,7 @@ cloudpickle = "^3.0.0"
 google-cloud-firestore = "^2.20.2"
 
 [tool.poetry.scripts]
-simulation_guide = "server.serve:main"
+bookings_agent = "server.serve:main"
 
 [build-system]
 requires = ["poetry-core"]

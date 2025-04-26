@@ -2,12 +2,12 @@
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
-from simulation_guide.models import DEFAULT_MODEL
+from bookings_agent.models import DEFAULT_MODEL
 from .prompts import TECH_ARCHITECT_INSTRUCTION
 from .tools import identify_capability_gap, propose_agent_spec, select_toolset, risk_assessment
-from simulation_guide.tools import interact_with_firestore
-from simulation_guide.tools.interact_with_firestore import sanitize_firestore_data
-from simulation_guide.firestore_service import sanitize_sentinel
+from bookings_agent.tools import interact_with_firestore
+from bookings_agent.tools.interact_with_firestore import sanitize_firestore_data
+from bookings_agent.firestore_service import sanitize_sentinel
 
 # Helper to always use the correct agent name
 def architect_interact_with_firestore(operation: str, args: dict) -> dict:

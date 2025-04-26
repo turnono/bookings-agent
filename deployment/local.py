@@ -5,7 +5,7 @@ import vertexai
 from dotenv import load_dotenv
 from vertexai.preview import reasoning_engines
 
-from simulation_guide.agent import root_agent
+from bookings_agent.agent import root_agent
 
 
 def main():

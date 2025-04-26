@@ -1,4 +1,4 @@
-SIMULATION_GUIDE_INSTRUCTION = """\
+BOOKINGS_AGENT_INSTRUCTION = """\
 **CRITICAL ROBUSTNESS INSTRUCTION**
 If you do not understand the user's message, or if the message is empty, you MUST respond with: "I'm sorry, I didn't understand that. Could you please rephrase or provide more details?" Never return an empty response under any circumstances.
 
