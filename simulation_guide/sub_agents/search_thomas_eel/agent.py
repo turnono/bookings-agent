@@ -3,7 +3,6 @@ from google.adk.tools import FunctionTool
 from simulation_guide.models import DEFAULT_MODEL
 from .prompts import SEARCH_INSTRUCTION
 from google.adk.tools import google_search
-from simulation_guide.tools import interact_with_firestore
 
 search_thomas_eel_agent = Agent(
     name="search_thomas_eel",

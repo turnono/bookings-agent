@@ -2,159 +2,256 @@ import os
 from typing import Any, Dict, List, Optional
 from google.cloud import firestore
 from datetime import datetime
+from google.cloud.firestore_v1.transforms import Sentinel
+
+def sanitize_sentinel(data: Any) -> Any:
+    """
+    Convert Firestore Sentinel objects (like SERVER_TIMESTAMP) to serializable formats.
+    
+    Args:
+        data: The data that might contain Sentinel objects
+        
+    Returns:
+        Serializable data with Sentinels replaced
+    """
+    if isinstance(data, Sentinel):
+        return "<SERVER_TIMESTAMP>"
+    elif isinstance(data, dict):
+        return {k: sanitize_sentinel(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_sentinel(item) for item in data]
+    else:
+        return data
+
 class FirestoreService:
     def __init__(self):
         self.client = firestore.Client()
-        self.users_collection = self.client.collection("users")
-        self.agent_memory_collection = self.client.collection("agent_memory")
-        self.artifacts_collection = self.client.collection("artifacts")
-        self.sessions_collection = self.client.collection("sessions")
+        self.memories_collection = self.client.collection("memories")
         self.tasks_collection = self.client.collection("tasks")
-        self.knowledge_base_collection = self.client.collection("knowledge_base")
-
-    # USERS
-    def create_or_update_user(self, user_id: str, display_name: str, user_type: str, role: str, email: str = None, preferences: dict = None):
-        """Create or update a user (human or agent) profile."""
-        doc_ref = self.users_collection.document(user_id)
-        data = {
-            "display_name": display_name,
-            "user_type": user_type,  # 'human' or 'agent'
-            "role": role,             # 'user', 'superuser', 'admin', 'agent'
-            "created_at": firestore.SERVER_TIMESTAMP,
-        }
-        if email:
-            data["email"] = email
-        if preferences:
-            data["preferences"] = preferences
-        doc_ref.set(data, merge=True)
-
-    def get_user(self, user_id: str):
-        doc = self.users_collection.document(user_id).get()
-        return doc.to_dict() if doc.exists else None
-
-    def get_all_users(self, limit: int = 100):
-        return [doc.to_dict() for doc in self.users_collection.limit(limit).stream()]
-
-    # SESSIONS
-    # we will use the session data from the web ui
-    def create_session(self, user_id: str, session_id: str, session_data: dict):
-        """Create a new session for a user."""
-        sessions = self.sessions_collection
-        sessions.document(session_id).set(session_data, merge=True)
-
-    def update_session(self, user_id: str, session_id: str, session_data: dict):
-        sessions = self.sessions_collection
-        # update the session with the current contents
-        sessions.document(session_id).update(session_data)
-
-    def get_sessions(self, user_id: str, limit: int = 10):
-        sessions = self.sessions_collection
-        return [doc.to_dict() for doc in sessions.order_by("started_at", direction=firestore.Query.DESCENDING).limit(limit).stream()]
-
-    def delete_session(self, user_id: str, session_id: str):
-        sessions = self.sessions_collection
-        sessions.document(session_id).delete()
 
     # TASKS
-    def create_task(self, user_id: str, session_id: str, task_id: str, description: str, status: str = "pending", priority: str = "medium", due_date = None):
-        """Create a new task under a user's session."""
-        tasks = self.tasks_collection
-        data = {
-            "description": description,
-            "status": status,
-            "priority": priority,
-            "created_at": firestore.SERVER_TIMESTAMP,
-        }
-        if due_date:
-            data["due_date"] = due_date
-        tasks.document(task_id).set(data, merge=True)
+    def save_task(self, task_data: Dict[str, Any]) -> str:
+        """
+        Create or update a task with the provided data.
+        
+        Args:
+            task_data: Dictionary containing task information
+            
+        Returns:
+            task_id: The ID of the created/updated task
+        """
+        # Create a copy of the data to avoid modifying the original
+        task_data_copy = task_data.copy()
+        
+        task_id = task_data_copy.get("id")
+        if not task_id:
+            task_id = self.tasks_collection.document().id
+            task_data_copy["id"] = task_id
+            
+        if "created_at" not in task_data_copy:
+            # Use current datetime instead of SERVER_TIMESTAMP
+            task_data_copy["created_at"] = datetime.now().isoformat()
+        
+        # Set without using SERVER_TIMESTAMP
+        self.tasks_collection.document(task_id).set(task_data_copy, merge=True)
+        return task_id
 
-    def get_tasks(self, user_id: str, session_id: str, limit: int = 20):
-        tasks = self.tasks_collection
-        return [doc.to_dict() for doc in tasks.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit).stream()]
-
-    # AGENT MEMORY (logs, facts, preferences, events)
-    def store_agent_memory(self, user_id: str, session_id: str, agent_name: str, content: dict, memory_type: str = "fact"):
-        """Store a memory, log, or event for a user or agent."""
-        doc = {
-            "user_id": user_id,
-            "session_id": session_id,
-            "agent_name": agent_name,
-            "content": content,
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "type": memory_type,
-        }
-        ref = self.agent_memory_collection.document()
-        ref.set(doc)
-        return ref.id
-
-    def get_agent_memory(self, user_id: str, session_id: str = None, agent_name: str = None, memory_type: str = None, limit: int = 20):
-        query = self.agent_memory_collection.where("user_id", "==", user_id)
-        if session_id:
-            query = query.where("session_id", "==", session_id)
-        if agent_name:
-            query = query.where("agent_name", "==", agent_name)
-        if memory_type:
-            query = query.where("type", "==", memory_type)
-        query = query.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
-        return [doc.to_dict() for doc in query.stream()]
-
-    # ARTIFACTS (metadata for files in Firebase Storage)
-    def store_artifact(self, user_id: str, session_id: str, storage_path: str, artifact_type: str, description: str = None):
-        """Store metadata for an artifact (file) in Firebase Storage."""
-        doc = {
-            "user_id": user_id,
-            "session_id": session_id,
-            "storage_path": storage_path,
-            "type": artifact_type,
-            "created_at": firestore.SERVER_TIMESTAMP,
-        }
-        if description:
-            doc["description"] = description
-        ref = self.artifacts_collection.document()
-        ref.set(doc)
-        return ref.id
-
-    def get_artifacts(self, user_id: str = None, session_id: str = None, artifact_type: str = None, limit: int = 20):
-        query = self.artifacts_collection
-        if user_id:
-            query = query.where("user_id", "==", user_id)
-        if session_id:
-            query = query.where("session_id", "==", session_id)
-        if artifact_type:
-            query = query.where("type", "==", artifact_type)
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a single task by ID.
+        
+        Args:
+            task_id: The ID of the task to retrieve
+            
+        Returns:
+            Task document or None if not found
+        """
+        doc = self.tasks_collection.document(task_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            data["id"] = doc.id
+            # Sanitize any Sentinel objects before returning
+            return sanitize_sentinel(data)
+        return None
+        
+    def update_task(self, task_id: str, updates: Dict[str, Any]) -> None:
+        """
+        Update specific fields of a task.
+        
+        Args:
+            task_id: The ID of the task to update
+            updates: Dictionary of fields to update
+        """
+        # Create a copy of updates to avoid modifying the original
+        updates_copy = updates.copy()
+        
+        # Use current datetime instead of SERVER_TIMESTAMP
+        updates_copy["updated_at"] = datetime.now().isoformat()
+        
+        self.tasks_collection.document(task_id).update(updates_copy)
+        
+    def delete_task(self, task_id: str) -> None:
+        """
+        Delete a task by ID.
+        
+        Args:
+            task_id: The ID of the task to delete
+        """
+        self.tasks_collection.document(task_id).delete()
+        
+    def list_tasks(self, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """
+        Get a list of tasks with optional filtering.
+        
+        Args:
+            filters: Dictionary of filters to apply
+                - user_id: Filter by user ID
+                - session_id: Filter by session ID
+                - status: Filter by status
+                - limit: Maximum number of tasks to return (default: 20)
+            
+        Returns:
+            List of task documents
+        """
+        query = self.tasks_collection
+        
+        if filters:
+            if "user_id" in filters:
+                query = query.where("user_id", "==", filters["user_id"])
+            if "session_id" in filters:
+                query = query.where("session_id", "==", filters["session_id"])
+            if "status" in filters:
+                query = query.where("status", "==", filters["status"])
+                
+            limit = filters.get("limit", 20)
+        else:
+            limit = 20
+            
         query = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
-        return [doc.to_dict() for doc in query.stream()]
+        
+        # Include document IDs in the results
+        results = []
+        for doc in query.stream():
+            data = doc.to_dict()
+            data["id"] = doc.id
+            # Sanitize any Sentinel objects
+            results.append(sanitize_sentinel(data))
+            
+        return results
 
-    # KNOWLEDGE BASE
-    def add_knowledge_item(self, content: str, embedding: list, user_id: str = None, agent_id: str = None, session_id: str = None, metadata: dict = None):
-        """Add a knowledge item with optional embedding and metadata."""
-        doc = {
-            "content": content,
-            "embedding": embedding,
-            "created_at": firestore.SERVER_TIMESTAMP,
-        }
-        if user_id:
-            doc["user_id"] = user_id
-        if agent_id:
-            doc["agent_id"] = agent_id
-        if session_id:
-            doc["session_id"] = session_id
-        if metadata:
-            doc["metadata"] = metadata
-        ref = self.knowledge_base_collection.document()
-        ref.set(doc)
-        return ref.id
-
-    def get_knowledge_items(self, user_id: str = None, agent_id: str = None, session_id: str = None, tags: list = None, limit: int = 20):
-        query = self.knowledge_base_collection
-        if user_id:
-            query = query.where("user_id", "==", user_id)
-        if agent_id:
-            query = query.where("agent_id", "==", agent_id)
-        if session_id:
-            query = query.where("session_id", "==", session_id)
-        if tags:
-            query = query.where("metadata.tags", "array_contains_any", tags)
-        query = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
-        return [doc.to_dict() for doc in query.stream()]
+    # MEMORY MANAGEMENT
+    def memorize(self, memory_data: Dict[str, Any]) -> str:
+        """
+        Store a memory with the provided data.
+        
+        Args:
+            memory_data: Dictionary containing memory information
+                - type: Memory type (e.g., "fact", "preference", "event")
+                - content: The actual memory content
+                - tags: Optional list of tags for filtering
+            
+        Returns:
+            The ID of the created memory document
+        """
+        # Create a copy of the data to avoid modifying the original
+        memory_data_copy = memory_data.copy()
+        
+        memory_id = memory_data_copy.get("id")
+        if not memory_id:
+            memory_id = self.memories_collection.document().id
+            memory_data_copy["id"] = memory_id
+            
+        if "created_at" not in memory_data_copy:
+            # Use current datetime instead of SERVER_TIMESTAMP
+            memory_data_copy["created_at"] = datetime.now().isoformat()
+            
+        # Use current datetime instead of SERVER_TIMESTAMP
+        memory_data_copy["updated_at"] = datetime.now().isoformat()
+        
+        self.memories_collection.document(memory_id).set(memory_data_copy, merge=True)
+        return memory_id
+    
+    def get_memory(self, memory_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a specific memory by its ID.
+        
+        Args:
+            memory_id: The ID of the memory to retrieve
+            
+        Returns:
+            The memory document or None if not found
+        """
+        doc = self.memories_collection.document(memory_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            data["id"] = doc.id
+            # Sanitize any Sentinel objects
+            return sanitize_sentinel(data)
+        return None
+    
+    def update_memory(self, memory_id: str, updates: Dict[str, Any]) -> None:
+        """
+        Update an existing memory.
+        
+        Args:
+            memory_id: The ID of the memory to update
+            updates: Dictionary of fields to update
+        """
+        # Create a copy of updates to avoid modifying the original
+        updates_copy = updates.copy()
+        
+        # Use current datetime instead of SERVER_TIMESTAMP
+        updates_copy["updated_at"] = datetime.now().isoformat()
+        
+        self.memories_collection.document(memory_id).update(updates_copy)
+    
+    def delete_memory(self, memory_id: str) -> None:
+        """
+        Delete a memory by its ID.
+        
+        Args:
+            memory_id: The ID of the memory to delete
+        """
+        self.memories_collection.document(memory_id).delete()
+        
+    def list_memories(self, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieve memories with optional filtering.
+        
+        Args:
+            filters: Dictionary of filters to apply
+                - type: Filter by memory type
+                - tags: Filter by one or more tags
+                - limit: Maximum number of memories to retrieve
+            
+        Returns:
+            List of memory documents
+        """
+        query = self.memories_collection
+        
+        if filters:
+            if "type" in filters:
+                query = query.where("type", "==", filters["type"])
+                
+            if "tags" in filters and isinstance(filters["tags"], list) and len(filters["tags"]) == 1:
+                query = query.where("tags", "array_contains", filters["tags"][0])
+                
+            limit = filters.get("limit", 20)
+        else:
+            limit = 20
+            
+        query = query.order_by("updated_at", direction=firestore.Query.DESCENDING).limit(limit)
+        
+        # Include document IDs in the results
+        results = []
+        for doc in query.stream():
+            data = doc.to_dict()
+            data["id"] = doc.id
+            # Sanitize any Sentinel objects
+            results.append(sanitize_sentinel(data))
+            
+        # If filtering by multiple tags, we need to do it after the query
+        if filters and "tags" in filters and isinstance(filters["tags"], list) and len(filters["tags"]) > 1:
+            results = [doc for doc in results if all(tag in doc.get("tags", []) for tag in filters["tags"])]
+            
+        return results

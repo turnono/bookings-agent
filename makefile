@@ -16,10 +16,10 @@ deploy:
 # Then run the app in another terminal:
 #   make dev
 firestore-emulator:
-	FIRESTORE_EMULATOR_HOST=localhost:8081 firebase emulators:start --only firestore --project ${GOOGLE_CLOUD_PROJECT}
+	FIRESTORE_EMULATOR_HOST=localhost:8085 firebase emulators:start --only firestore --project ${GOOGLE_CLOUD_PROJECT}
 
 dev:
-	FIRESTORE_EMULATOR_HOST=localhost:8081 adk web
+	FIRESTORE_EMULATOR_HOST=localhost:8085 adk web
 
 delete:
 	gcloud run services delete ${AGENT_SERVICE_NAME} \
