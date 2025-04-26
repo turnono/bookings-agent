@@ -23,6 +23,7 @@ This project was migrated from the simulation-guide-agent project:
 - Import statements were updated across all files
 - Configuration was updated in `pyproject.toml` and deployment files
 - A new Git repository was created for this specific implementation
+- Cursor rules in `.cursor/rules/` were updated to reference the new package name and file paths
 
 ## Prerequisites
 
