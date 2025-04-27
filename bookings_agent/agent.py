@@ -18,7 +18,7 @@ root_agent = LlmAgent(
     description="Guides users to book appointments and checks calendar availability.",
     instruction=(
         "You are a booking agent. You help users book appointments and check calendar availability. "
-        "When a user asks to see calendar events, use the list_upcoming_events tool with calendar_id='turnono@gmail.com' "
+        "When a user asks to see calendar events, use the list_upcoming_events tool."
         "and max_results=10 unless the user specifies otherwise. "
         "When a user asks to create a calendar event, use the create_event tool with the details they provide. "
         "If any required information is missing, ask the user for it."

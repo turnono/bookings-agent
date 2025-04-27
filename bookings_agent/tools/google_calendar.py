@@ -10,6 +10,8 @@ SCOPES = [
 
 # Path to your OAuth2 credentials file (downloaded from Google Cloud Console)
 SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), '../../sim-guide-agent-service-account.json')
+calendar_id = os.getenv('GOOGLE_CALENDAR_ID')
+time_zone = os.getenv('GOOGLE_TIME_ZONE')
 
 def get_calendar_service():
     credentials = service_account.Credentials.from_service_account_file(
@@ -17,7 +19,7 @@ def get_calendar_service():
     service = build('calendar', 'v3', credentials=credentials)
     return service
 
-def list_upcoming_events(max_results: int, calendar_id: str):
+def list_upcoming_events(max_results: int, calendar_id: str = calendar_id):
     """
     Lists the next max_results events on the specified calendar.
     Args:
@@ -28,7 +30,8 @@ def list_upcoming_events(max_results: int, calendar_id: str):
     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
     events_result = service.events().list(calendarId=calendar_id, timeMin=now,
                                           maxResults=max_results, singleEvents=True,
-                                          orderBy='startTime').execute()
+                                          orderBy='startTime',
+                                          timeZone=time_zone).execute()
     events = events_result.get('items', [])
     return [{
         'summary': event.get('summary'),
@@ -58,8 +61,8 @@ def create_event(
     service = get_calendar_service()
     event = {
         'summary': summary,
-        'start': {'dateTime': start_time},
-        'end': {'dateTime': end_time},
+        'start': {'dateTime': start_time, 'timeZone': time_zone},
+        'end': {'dateTime': end_time, 'timeZone': time_zone},
     }
     if description:
         event['description'] = description
