@@ -29,3 +29,8 @@ alwaysApply: false
 - Built-in tools cannot be used in sub-agents (see [sub_agents/](mdc:bookings_agent/sub_agents)).
 - Custom tools can be used in both root and sub-agents.
 - For more, see the limitations described in the project documentation and [README.md](mdc:README.md).
+
+---
+# Codebase Awareness Rule
+
+- In every chat, always check the codebase for relevant files, logic, and context before generating responses or making changes. This ensures accuracy, up-to-date guidance, and prevents errors due to outdated assumptions.
