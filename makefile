@@ -15,14 +15,21 @@ deploy:
 #   make firestore-emulator
 # Then run the app in another terminal:
 #   make dev
+
 firestore-emulator:
-	FIRESTORE_EMULATOR_HOST=localhost:8085 firebase emulators:start --only firestore --project ${GOOGLE_CLOUD_PROJECT}
+	@echo "[Firestore Emulator] Starting Firestore emulator. Run this in its own terminal window!"
+	FIRESTORE_EMULATOR_HOST=localhost:8086 firebase emulators:start --only firestore --project $(GOOGLE_CLOUD_PROJECT)
 
 dev:
-	FIRESTORE_EMULATOR_HOST=localhost:8085 adk web
+	@echo "[Dev Server] Starting ADK web server. Run this in a separate terminal after the emulator is running!"
+	FIRESTORE_EMULATOR_HOST=localhost:8086 adk web
 
 delete:
 	gcloud run services delete ${AGENT_SERVICE_NAME} \
 	--region ${GOOGLE_CLOUD_LOCATION}
 
-(.venv) (base) MacBook-Pro-3:bookings-agent abdullah$ GOOGLE_APPLICATION_CREDENTIALSOkay, so, seems everything is working at least for now. The issue with the service account I resolved with by using the Google application credentials in my terminal. So we need to make a note of that in the readme to set the Google application credentials with the path to the service account.
+ngrok:
+	@echo "[ngrok] Launching tunnel to smart-earwig-completely.ngrok-free.app:8000. Run this in its own terminal!"
+	ngrok http --url=smart-earwig-completely.ngrok-free.app 8000
+	
+

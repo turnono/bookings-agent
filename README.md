@@ -102,3 +102,5 @@ bookings_agent/
 
 4. Configure your calendar preferences and blocked times
 5. Run the main application: `python main.py`
+
+<!-- (.venv) MacBook-Pro-3:bookings-agent abdullah$ GOOGLE_APPLICATION_CREDENTIALSOkay, so, seems everything is working at least for now. The issue with the service account I resolved with by using the Google application credentials in my terminal. So we need to make a note of that in the readme to set the Google application credentials with the path to the service account. -->

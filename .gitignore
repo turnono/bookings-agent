@@ -8,8 +8,11 @@ env.*
 # Ignore all environment variable files and folders
 
 sim-guide-agent-service-account.json
+client_secret_*.json
+
 sessions.db
 firestore-debug.log
 firebase-debug.log
 ui-debug.log
 
+taajirah-firebase-adminsdk-kc3vd-59e0de2c62.json
