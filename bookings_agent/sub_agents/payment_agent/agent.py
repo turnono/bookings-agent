@@ -24,10 +24,10 @@ def create_paystack_checkout(amount: int, email: str, booking_id: str, user_id: 
         str: Paystack checkout URL for user payment
     """
     metadata = {"bookingId": booking_id, "userId": user_id}
-    # Use PAYSTACK_CALLBACK_URL if set, otherwise use dev-ui with app param
+    # Use PAYSTACK_CALLBACK_URL if set, otherwise use localhost:4200/payment-complete
     callback_url = os.getenv(
         "PAYSTACK_CALLBACK_URL",
-        "https://localhost:8000/dev-ui?app=bookings_agent"
+        "http://localhost:4200/payment-complete"
     )
     resp = PaystackAPI.initialize_transaction(amount, email, metadata, callback_url=callback_url)
     return resp["data"]["authorization_url"] 

@@ -21,8 +21,11 @@ firestore-emulator:
 	FIRESTORE_EMULATOR_HOST=localhost:8086 firebase emulators:start --only firestore --project $(GOOGLE_CLOUD_PROJECT)
 
 dev:
-	@echo "[Dev Server] Starting ADK web server. Run this in a separate terminal after the emulator is running!"
-	FIRESTORE_EMULATOR_HOST=localhost:8086 adk web
+	@echo "[Dev Server] Starting ADK API server. Run this in a separate terminal after the emulator is running!"
+	FIRESTORE_EMULATOR_HOST=localhost:8086 adk api_server
+
+frontend-do:
+	cd frontend && npm start
 
 delete:
 	gcloud run services delete ${AGENT_SERVICE_NAME} \

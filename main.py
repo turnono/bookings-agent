@@ -13,7 +13,7 @@ AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Example session DB URL (e.g., SQLite)
 SESSION_DB_URL = "sqlite:///./sessions.db"
 # Example allowed origins for CORS
-ALLOWED_ORIGINS = ["http://localhost", "http://localhost:8080", "*"]
+ALLOWED_ORIGINS = ["http://localhost:4200"]
 # Set web=True if you intend to serve a web interface, False otherwise
 SERVE_WEB_INTERFACE = True
 
@@ -99,6 +99,10 @@ async def payment_status(reference: str = Query(...)):
         "booking": booking,
         "booking_confirmed": status_ == "success"
     }
+
+@app.options("/run")
+async def options_run():
+    return Response(status_code=200)
 
 if __name__ == "__main__":
     # Use the PORT environment variable provided by Cloud Run, defaulting to 8080

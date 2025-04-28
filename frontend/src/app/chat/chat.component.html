@@ -1,0 +1,13 @@
+<div class="chat-window">
+    <button (click)="newChat()" class="new-chat-btn">New Chat</button>
+    <div *ngFor="let msg of messages">
+        <div [ngClass]="msg.role">
+            <span *ngIf="msg.event" class="event">[Event] {{ msg.event }}: </span>
+            <span>{{ msg.text }}</span>
+        </div>
+    </div>
+</div>
+<div class="chat-input">
+    <input [(ngModel)]="userInput" (keyup.enter)="sendMessage()" placeholder="Type your message..." />
+    <button (click)="sendMessage()" [disabled]="loading">Send</button>
+</div>
