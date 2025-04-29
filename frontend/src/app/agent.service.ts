@@ -17,41 +17,30 @@ export class AgentService {
     this._authReady = this.ensureSignedIn();
   }
 
-  // Ensures the user is signed in anonymously and UID is stored
+  // Ensures the user is signed in anonymously and UID is available
   private async ensureSignedIn(): Promise<string> {
-    let uid = localStorage.getItem('firebase_uid');
-    if (uid) {
-      this._firebaseUid = uid;
-      return uid;
-    }
-    // Try to get current user
     if (this.auth.currentUser) {
       this._firebaseUid = this.auth.currentUser.uid;
-      localStorage.setItem('firebase_uid', this._firebaseUid);
       return this._firebaseUid;
     }
     // Otherwise, sign in anonymously
     const cred = await signInAnonymously(this.auth);
     this._firebaseUid = cred.user.uid;
-    localStorage.setItem('firebase_uid', this._firebaseUid);
     return this._firebaseUid;
   }
 
   // Returns a promise that resolves to the Firebase UID
   get userId(): string {
-    if (this._firebaseUid) return this._firebaseUid;
-    const uid = localStorage.getItem('firebase_uid');
-    if (uid) {
-      this._firebaseUid = uid;
-      return uid;
+    if (this.auth.currentUser) {
+      return this.auth.currentUser.uid;
     }
     throw new Error('Firebase UID not ready yet.');
   }
 
   // Returns an observable that emits when UID is ready
   getUserId$(): Observable<string> {
-    if (this._firebaseUid) return of(this._firebaseUid);
-    return from(this._authReady);
+    if (this.auth.currentUser) return of(this.auth.currentUser.uid);
+    return from(this.ensureSignedIn());
   }
 
   get sessionId(): string {
