@@ -1,13 +1,53 @@
 <div class="chat-window">
-    <button (click)="newChat()" class="new-chat-btn">New Chat</button>
+  <button (click)="newChat()" class="new-chat-btn">New Chat</button>
+  <div class="message-list">
     <div *ngFor="let msg of messages">
-        <div [ngClass]="msg.role">
-            <span *ngIf="msg.event" class="event">[Event] {{ msg.event }}: </span>
-            <span>{{ msg.text }}</span>
-        </div>
+      <div [ngClass]="msg.role">
+        <span *ngIf="msg.event" class="event">[Event] {{ msg.event }}: </span>
+        <span>{{ msg.text }}</span>
+      </div>
     </div>
+  </div>
 </div>
 <div class="chat-input">
+  <!-- Screening question -->
+  <ng-container *ngIf="activeFunctionCall?.name === 'screening_question'">
+    <mat-form-field appearance="outline">
+      <mat-label>{{ activeFunctionCall.args?.question || 'Your answer' }}</mat-label>
+      <input matInput [(ngModel)]="screeningAnswer" (keyup.enter)="submitScreeningAnswer()" />
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="submitScreeningAnswer()"
+      [disabled]="loading || !screeningAnswer.trim()">Submit</button>
+  </ng-container>
+
+  <!-- Date selection -->
+  <ng-container *ngIf="activeFunctionCall?.name === 'availability_agent.getSlots'">
+    <mat-form-field appearance="outline">
+      <mat-label>Select a date</mat-label>
+      <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [matDatepickerFilter]="dateFilter" />
+      <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="submitDateSelection()"
+      [disabled]="loading || !selectedDate">Submit</button>
+  </ng-container>
+
+  <!-- Time-slot selection -->
+  <ng-container *ngIf="activeFunctionCall?.name === 'select_time_slot' && availableSlots.length">
+    <mat-chip-listbox>
+      <mat-chip-option *ngFor="let slot of availableSlots" (click)="submitSlotSelection(slot)">{{ slot
+        }}</mat-chip-option>
+    </mat-chip-listbox>
+  </ng-container>
+
+  <!-- Payment -->
+  <ng-container *ngIf="activeFunctionCall?.name === 'create_paystack_checkout' && paymentUrl">
+    <button mat-raised-button color="accent" (click)="goToPayment()">Pay Now</button>
+  </ng-container>
+
+  <!-- Default text input -->
+  <ng-container *ngIf="!activeFunctionCall">
     <input [(ngModel)]="userInput" (keyup.enter)="sendMessage()" placeholder="Type your message..." />
     <button (click)="sendMessage()" [disabled]="loading">Send</button>
+  </ng-container>
 </div>
