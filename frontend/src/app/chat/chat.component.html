@@ -1,20 +1,24 @@
-<div class="chat-window">
-  <button (click)="newChat()" class="new-chat-btn">New Chat</button>
+<div class="chat-window mat-typography">
+  <button mat-stroked-button color="primary" (click)="newChat()" class="mat-elevation-z0 mat-margin-bottom">New
+    Chat</button>
   <div class="message-list">
     <div *ngFor="let msg of messages">
-      <div [ngClass]="msg.role">
+      <mat-card [ngClass]="msg.role" class="mat-elevation-z1 mat-margin-bottom">
         <span *ngIf="msg.event" class="event">[Event] {{ msg.event }}: </span>
         <span>{{ msg.text }}</span>
-      </div>
+      </mat-card>
     </div>
   </div>
 </div>
-<div class="chat-input">
+<div class="chat-input mat-elevation-z0 mat-typography">
+  <mat-progress-spinner *ngIf="loading" diameter="24" mode="indeterminate" aria-label="Loading"></mat-progress-spinner>
+
   <!-- Screening question -->
   <ng-container *ngIf="activeFunctionCall?.name === 'screening_question'">
-    <mat-form-field appearance="outline">
+    <mat-form-field appearance="outline" class="w-100">
       <mat-label>{{ activeFunctionCall.args?.question || 'Your answer' }}</mat-label>
-      <input matInput [(ngModel)]="screeningAnswer" (keyup.enter)="submitScreeningAnswer()" />
+      <input matInput [(ngModel)]="screeningAnswer" (keyup.enter)="submitScreeningAnswer()" #chatInput
+        aria-label="Screening answer input" />
     </mat-form-field>
     <button mat-raised-button color="primary" (click)="submitScreeningAnswer()"
       [disabled]="loading || !screeningAnswer.trim()">Submit</button>
@@ -22,9 +26,10 @@
 
   <!-- Date selection -->
   <ng-container *ngIf="activeFunctionCall?.name === 'availability_agent.getSlots'">
-    <mat-form-field appearance="outline">
+    <mat-form-field appearance="outline" class="w-100">
       <mat-label>Select a date</mat-label>
-      <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [matDatepickerFilter]="dateFilter" />
+      <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [matDatepickerFilter]="dateFilter" #chatInput
+        aria-label="Date selection input" />
       <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
       <mat-datepicker #picker></mat-datepicker>
     </mat-form-field>
@@ -34,7 +39,7 @@
 
   <!-- Time-slot selection -->
   <ng-container *ngIf="activeFunctionCall?.name === 'select_time_slot' && availableSlots.length">
-    <mat-chip-listbox>
+    <mat-chip-listbox aria-label="Available time slots">
       <mat-chip-option *ngFor="let slot of availableSlots" (click)="submitSlotSelection(slot)">{{ slot
         }}</mat-chip-option>
     </mat-chip-listbox>
@@ -47,7 +52,15 @@
 
   <!-- Default text input -->
   <ng-container *ngIf="!activeFunctionCall">
-    <input [(ngModel)]="userInput" (keyup.enter)="sendMessage()" placeholder="Type your message..." />
-    <button (click)="sendMessage()" [disabled]="loading">Send</button>
+    <mat-form-field appearance="outline" class="w-100">
+      <mat-label>Type your message...</mat-label>
+      <input matInput type="text" [(ngModel)]="userInput" #chatInput aria-label="Chat input"
+        (keyup.enter)="sendMessage()">
+      <button *ngIf="userInput" matSuffix mat-icon-button aria-label="Clear" (click)="userInput = ''">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="sendMessage()"
+      [disabled]="loading || !userInput.trim()">Send</button>
   </ng-container>
 </div>

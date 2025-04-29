@@ -8,13 +8,15 @@ import {
 import { AgentService } from '../agent.service';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { HttpClientModule } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatIconModule } from '@angular/material/icon';
+import { MatCardModule } from '@angular/material/card';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 interface ChatMessage {
   role: 'user' | 'agent' | 'system';
@@ -38,6 +40,9 @@ interface ChatMessage {
     MatDatepickerModule,
     MatNativeDateModule,
     MatChipsModule,
+    MatProgressSpinnerModule,
+    MatCardModule,
+    MatIconModule,
   ],
   styleUrls: ['./chat.component.scss'],
 })
