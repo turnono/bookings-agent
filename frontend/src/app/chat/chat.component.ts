@@ -17,6 +17,17 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDividerModule } from '@angular/material/divider';
+import { Timestamp } from '@angular/fire/firestore';
+import { MatToolbarModule } from '@angular/material/toolbar';
+
+import {
+  trigger,
+  state,
+  style,
+  animate,
+  transition,
+} from '@angular/animations';
 
 interface ChatMessage {
   role: 'user' | 'agent' | 'system';
@@ -24,6 +35,7 @@ interface ChatMessage {
   event?: string;
   functionCall?: any;
   functionResponse?: any;
+  timestamp?: Timestamp;
 }
 
 @Component({
@@ -43,8 +55,21 @@ interface ChatMessage {
     MatProgressSpinnerModule,
     MatCardModule,
     MatIconModule,
+    MatDividerModule,
+    MatToolbarModule,
   ],
   styleUrls: ['./chat.component.scss'],
+  animations: [
+    trigger('fadeIn', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(16px)' }),
+        animate(
+          '400ms cubic-bezier(.35,0,.25,1)',
+          style({ opacity: 1, transform: 'none' })
+        ),
+      ]),
+    ]),
+  ],
 })
 export class ChatComponent implements OnInit, AfterViewInit {
   messages: ChatMessage[] = [
@@ -52,6 +77,7 @@ export class ChatComponent implements OnInit, AfterViewInit {
   ];
   userInput: string = '';
   loading = false;
+  errorMessage: string = '';
 
   // Interactive controls state
   activeFunctionCall: any = null;
@@ -65,6 +91,8 @@ export class ChatComponent implements OnInit, AfterViewInit {
   @ViewChild('messageList') messageListRef!: ElementRef;
   @ViewChild('chatInput') chatInputRef!: ElementRef;
 
+  currentYear = new Date().getFullYear();
+
   // Date filter for mat-datepicker
   dateFilter = (date: Date | null): boolean => {
     if (!date) return false;
@@ -74,7 +102,9 @@ export class ChatComponent implements OnInit, AfterViewInit {
 
   constructor(private agentService: AgentService) {}
 
-  ngOnInit() {}
+  ngOnInit() {
+    this.newChat();
+  }
 
   ngAfterViewInit() {
     this.scrollToBottom();
@@ -98,15 +128,30 @@ export class ChatComponent implements OnInit, AfterViewInit {
   }
 
   handleError(message: string) {
-    this.messages.push({ role: 'system', text: message });
+    this.errorMessage = message;
+    if (!this.messages.some((m) => m.role === 'system' && m.text === message)) {
+      this.messages.push({
+        role: 'system',
+        text: message,
+        timestamp: Timestamp.now(),
+      });
+    }
     this.loading = false;
     this.focusInput();
+  }
+
+  dismissError() {
+    this.errorMessage = '';
   }
 
   sendMessage() {
     const input = this.userInput.trim();
     if (!input) return;
-    this.messages.push({ role: 'user', text: input });
+    this.messages.push({
+      role: 'user',
+      text: input,
+      timestamp: Timestamp.now(),
+    });
     this.userInput = '';
     this.loading = true;
     this.agentService.sendMessage(input).subscribe({
@@ -125,26 +170,21 @@ export class ChatComponent implements OnInit, AfterViewInit {
     for (const event of events) {
       if (event.content && event.content.parts) {
         for (const part of event.content.parts) {
+          // Internal logic: handle function calls and responses for UI triggers
           if (part.functionCall) {
             this.activeFunctionCall = part.functionCall;
             this.handleFunctionCall(part.functionCall);
-            this.messages.push({
-              role: 'system',
-              text: `Function call: ${part.functionCall.name}`,
-              event: JSON.stringify(part.functionCall.args),
-              functionCall: part.functionCall,
-            });
           } else if (part.functionResponse) {
             this.activeFunctionCall = null;
             this.handleFunctionResponse(part.functionResponse);
+          }
+          // User-facing: only show text
+          if (part.text) {
             this.messages.push({
-              role: 'system',
-              text: `Function response: ${part.functionResponse.name}`,
-              event: JSON.stringify(part.functionResponse.response),
-              functionResponse: part.functionResponse,
+              role: 'agent',
+              text: part.text,
+              timestamp: Timestamp.now(),
             });
-          } else if (part.text) {
-            this.messages.push({ role: 'agent', text: part.text });
           }
         }
       }
@@ -190,7 +230,11 @@ export class ChatComponent implements OnInit, AfterViewInit {
 
   submitScreeningAnswer() {
     if (!this.screeningAnswer.trim()) return;
-    this.messages.push({ role: 'user', text: this.screeningAnswer });
+    this.messages.push({
+      role: 'user',
+      text: this.screeningAnswer,
+      timestamp: Timestamp.now(),
+    });
     this.loading = true;
     this.agentService.sendMessage(this.screeningAnswer).subscribe({
       next: (events) => {
@@ -209,7 +253,11 @@ export class ChatComponent implements OnInit, AfterViewInit {
   submitDateSelection() {
     if (!this.selectedDate) return;
     const dateStr = this.selectedDate.toISOString().split('T')[0];
-    this.messages.push({ role: 'user', text: dateStr });
+    this.messages.push({
+      role: 'user',
+      text: dateStr,
+      timestamp: Timestamp.now(),
+    });
     this.loading = true;
     this.agentService.sendMessage(dateStr).subscribe({
       next: (events) => {
@@ -227,7 +275,11 @@ export class ChatComponent implements OnInit, AfterViewInit {
 
   submitSlotSelection(slot: string) {
     this.selectedSlot = slot;
-    this.messages.push({ role: 'user', text: slot });
+    this.messages.push({
+      role: 'user',
+      text: slot,
+      timestamp: Timestamp.now(),
+    });
     this.loading = true;
     this.agentService.sendMessage(slot).subscribe({
       next: (events) => {
