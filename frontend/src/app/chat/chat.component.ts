@@ -4,6 +4,7 @@ import {
   ViewChild,
   ElementRef,
   AfterViewInit,
+  OnDestroy,
 } from '@angular/core';
 import { AgentService } from '../agent.service';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -20,6 +21,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { Timestamp } from '@angular/fire/firestore';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 import {
   trigger,
@@ -71,9 +74,9 @@ interface ChatMessage {
     ]),
   ],
 })
-export class ChatComponent implements OnInit, AfterViewInit {
+export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   messages: ChatMessage[] = [
-    { role: 'system', text: 'Welcome! Start chatting with your agent.' },
+    { role: 'system', text: 'Welcome! Start chatting with the agent.' },
   ];
   userInput: string = '';
   loading = false;
@@ -100,6 +103,9 @@ export class ChatComponent implements OnInit, AfterViewInit {
     return this.availableDates.includes(dateStr);
   };
 
+  private destroy$ = new Subject<void>();
+  private mutationObserver: MutationObserver | null = null;
+
   constructor(private agentService: AgentService) {}
 
   ngOnInit() {
@@ -108,15 +114,31 @@ export class ChatComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit() {
     this.scrollToBottom();
+    this.setupScrollObserver();
+  }
+
+  setupScrollObserver() {
+    if (this.messageListRef && !this.mutationObserver) {
+      // Create a new observer
+      this.mutationObserver = new MutationObserver(() => {
+        this.scrollToBottom();
+      });
+
+      // Start observing
+      this.mutationObserver.observe(this.messageListRef.nativeElement, {
+        childList: true,
+        subtree: true,
+      });
+    }
   }
 
   scrollToBottom() {
     setTimeout(() => {
       if (this.messageListRef) {
-        this.messageListRef.nativeElement.scrollTop =
-          this.messageListRef.nativeElement.scrollHeight;
+        const element = this.messageListRef.nativeElement;
+        element.scrollTop = element.scrollHeight;
       }
-    }, 0);
+    }, 100);
   }
 
   focusInput() {
@@ -154,19 +176,29 @@ export class ChatComponent implements OnInit, AfterViewInit {
     });
     this.userInput = '';
     this.loading = true;
-    this.agentService.sendMessage(input).subscribe({
-      next: (events) => {
-        this.handleAgentEvents(events);
-        this.scrollToBottom();
-        this.focusInput();
-      },
-      error: () => {
-        this.handleError('Error contacting agent.');
-      },
-    });
+
+    // Scroll to bottom right after adding the user message
+    this.scrollToBottom();
+
+    this.agentService
+      .sendMessage(input)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (events) => {
+          this.handleAgentEvents(events);
+          // No need to call scrollToBottom here as handleAgentEvents handles it
+          this.focusInput();
+        },
+        error: () => {
+          this.handleError('Error contacting agent.');
+          this.scrollToBottom(); // Make sure to scroll even in case of error
+        },
+      });
   }
 
   handleAgentEvents(events: any) {
+    let messageAdded = false;
+
     for (const event of events) {
       if (event.content && event.content.parts) {
         for (const part of event.content.parts) {
@@ -185,12 +217,21 @@ export class ChatComponent implements OnInit, AfterViewInit {
               text: part.text,
               timestamp: Timestamp.now(),
             });
+            messageAdded = true;
           }
         }
       }
     }
+
     this.loading = false;
-    this.scrollToBottom();
+
+    // Ensure scroll happens after DOM update
+    if (messageAdded) {
+      this.scrollToBottom();
+      // Apply a second scroll after a slight delay to handle any rendering delays
+      setTimeout(() => this.scrollToBottom(), 300);
+    }
+
     this.focusInput();
   }
 
@@ -236,16 +277,22 @@ export class ChatComponent implements OnInit, AfterViewInit {
       timestamp: Timestamp.now(),
     });
     this.loading = true;
-    this.agentService.sendMessage(this.screeningAnswer).subscribe({
-      next: (events) => {
-        this.handleAgentEvents(events);
-        this.scrollToBottom();
-        this.focusInput();
-      },
-      error: () => {
-        this.handleError('Error contacting agent.');
-      },
-    });
+    this.scrollToBottom();
+
+    this.agentService
+      .sendMessage(this.screeningAnswer)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (events) => {
+          this.handleAgentEvents(events);
+          // No need to call scrollToBottom here as handleAgentEvents handles it
+          this.focusInput();
+        },
+        error: () => {
+          this.handleError('Error contacting agent.');
+          this.scrollToBottom();
+        },
+      });
     this.activeFunctionCall = null;
     this.screeningAnswer = '';
   }
@@ -259,16 +306,22 @@ export class ChatComponent implements OnInit, AfterViewInit {
       timestamp: Timestamp.now(),
     });
     this.loading = true;
-    this.agentService.sendMessage(dateStr).subscribe({
-      next: (events) => {
-        this.handleAgentEvents(events);
-        this.scrollToBottom();
-        this.focusInput();
-      },
-      error: () => {
-        this.handleError('Error contacting agent.');
-      },
-    });
+    this.scrollToBottom();
+
+    this.agentService
+      .sendMessage(dateStr)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (events) => {
+          this.handleAgentEvents(events);
+          // No need to call scrollToBottom here as handleAgentEvents handles it
+          this.focusInput();
+        },
+        error: () => {
+          this.handleError('Error contacting agent.');
+          this.scrollToBottom();
+        },
+      });
     this.activeFunctionCall = null;
     this.selectedDate = null;
   }
@@ -281,16 +334,22 @@ export class ChatComponent implements OnInit, AfterViewInit {
       timestamp: Timestamp.now(),
     });
     this.loading = true;
-    this.agentService.sendMessage(slot).subscribe({
-      next: (events) => {
-        this.handleAgentEvents(events);
-        this.scrollToBottom();
-        this.focusInput();
-      },
-      error: () => {
-        this.handleError('Error contacting agent.');
-      },
-    });
+    this.scrollToBottom();
+
+    this.agentService
+      .sendMessage(slot)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (events) => {
+          this.handleAgentEvents(events);
+          // No need to call scrollToBottom here as handleAgentEvents handles it
+          this.focusInput();
+        },
+        error: () => {
+          this.handleError('Error contacting agent.');
+          this.scrollToBottom();
+        },
+      });
     this.activeFunctionCall = null;
     this.selectedSlot = '';
   }
@@ -304,19 +363,33 @@ export class ChatComponent implements OnInit, AfterViewInit {
   newChat() {
     this.agentService.startNewSession();
     this.messages = [
-      { role: 'system', text: 'Welcome! Start chatting with your agent.' },
+      { role: 'system', text: 'Welcome! Start chatting with the agent.' },
     ];
     this.userInput = '';
     this.loading = false;
-    this.agentService.createSession().subscribe({
-      next: () => {
-        console.log('Session created successfully');
-        this.scrollToBottom();
-        this.focusInput();
-      },
-      error: () => {
-        this.handleError('Error creating session.');
-      },
-    });
+    this.agentService
+      .createSession()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          console.log('Session created successfully');
+          this.scrollToBottom();
+          this.focusInput();
+        },
+        error: () => {
+          this.handleError('Error creating session.');
+        },
+      });
+  }
+
+  ngOnDestroy() {
+    // Cleanup the observer
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+      this.mutationObserver = null;
+    }
+
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

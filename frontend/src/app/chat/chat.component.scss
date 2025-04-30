@@ -70,6 +70,9 @@
   background: #f8fafc;
   border-radius: 0 0 28px 28px;
   transition: background 0.3s;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .chat-message-card {
@@ -107,24 +110,36 @@
 }
 
 .chat-avatar {
-  font-size: 32px;
-  margin-bottom: 2px;
-  color: #fff;
-  background: var(--mat-primary, #1976d2);
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
-  padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
+
+.chat-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .agent .chat-avatar {
-  color: #1976d2;
   background: #e3f2fd;
 }
+
 .user .chat-avatar {
   color: #fff;
   background: var(--mat-primary, #1976d2);
+  font-size: 24px;
+}
+
+.system-avatar {
+  color: #e91e63;
+  background: #fce4ec;
+  font-size: 24px;
 }
 
 .chat-message-bubble {
@@ -254,15 +269,33 @@
   border-radius: 28px;
 }
 
+/* Footer styles - updated for outside card placement */
 .chat-footer {
   width: 100%;
+  padding: 12px 0;
   text-align: center;
-  font-size: 0.98rem;
-  color: #b0b0b0;
-  padding: 18px 0 10px 0;
-  background: transparent;
-  font-weight: 400;
-  letter-spacing: 0.01em;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.5);
+  margin-top: 12px;
+}
+
+/* System welcome banner */
+.system-welcome-banner {
+  width: 100%;
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 12px 18px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.07);
+  font-weight: 500;
+}
+
+.system-welcome-banner mat-icon {
+  color: #1976d2;
 }
 
 // Responsive

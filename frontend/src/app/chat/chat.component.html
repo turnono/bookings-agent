@@ -93,8 +93,8 @@
       <ng-container *ngIf="!activeFunctionCall">
         <mat-form-field appearance="outline" class="w-100 chat-input-field">
           <mat-label>Describe what you'd like to book…</mat-label>
-          <input matInput type="text" [(ngModel)]="userInput" #chatInput aria-label="Chat input"
-            (keyup.enter)="sendMessage()">
+          <textarea matInput rows="2" [(ngModel)]="userInput" #chatInput aria-label="Chat input"
+            (keyup.enter)="sendMessage()"></textarea>
           <button *ngIf="userInput" matSuffix mat-icon-button aria-label="Clear" (click)="userInput = ''">
             <mat-icon>close</mat-icon>
           </button>
