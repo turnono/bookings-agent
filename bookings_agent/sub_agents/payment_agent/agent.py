@@ -25,9 +25,15 @@ def create_paystack_checkout(amount: int, email: str, booking_id: str, user_id: 
     """
     metadata = {"bookingId": booking_id, "userId": user_id}
     # Use PAYSTACK_CALLBACK_URL if set, otherwise use localhost:4200/payment-complete
-    callback_url = os.getenv(
-        "PAYSTACK_CALLBACK_URL",
-        "http://localhost:4200/payment-complete"
-    )
+    
+    IS_DEV_MODE = os.getenv("ENV").lower() == "development"
+    print(f"IS_DEV_MODE: {IS_DEV_MODE}")
+    if IS_DEV_MODE:
+        callback_url = "http://localhost:4200/payment-complete"
+    else:
+        callback_url = os.getenv(
+            "PAYSTACK_CALLBACK_URL",
+            "https://tjr-scheduler.web.app/payment-complete"
+        )
     resp = PaystackAPI.initialize_transaction(amount, email, metadata, callback_url=callback_url)
     return resp["data"]["authorization_url"] 

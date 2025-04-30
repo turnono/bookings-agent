@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 
-IS_DEV_MODE = os.environ.get("ENV", "development").lower() == "development"
+IS_DEV_MODE = os.getenv("ENV").lower() == "development"
 
 if IS_DEV_MODE:
     PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SANDBOX_SECRET_KEY")

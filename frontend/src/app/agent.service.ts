@@ -42,7 +42,7 @@ export class AgentService {
   // Returns an observable that emits when UID is ready
   getUserId$(): Observable<string> {
     if (this.auth.currentUser) return of(this.auth.currentUser.uid);
-    return from(this.ensureSignedIn());
+    return from(this._authReady);
   }
 
   get sessionId(): string {
