@@ -19,12 +19,14 @@ export class AgentService {
 
   // Ensures the user is signed in anonymously and UID is available
   private async ensureSignedIn(): Promise<string> {
+    console.log('ensureSignedIn', this.auth.currentUser);
     if (this.auth.currentUser) {
       this._firebaseUid = this.auth.currentUser.uid;
       return this._firebaseUid;
     }
     // Otherwise, sign in anonymously
     const cred = await signInAnonymously(this.auth);
+    console.log('signInAnonymously', cred);
     this._firebaseUid = cred.user.uid;
     return this._firebaseUid;
   }

@@ -8,20 +8,23 @@ from typing import Any, Dict, List, Optional
 from bookings_agent.sub_agents.payment_agent.paystack_api import PaystackAPI
 from bookings_agent.tools.interact_with_firestore import interact_with_firestore
 
+IS_DEV_MODE = os.environ.get("ENV", "development").lower() == "development"
+
+
 # Get the directory where main.py is located
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Example session DB URL (e.g., SQLite)
 SESSION_DB_URL = "sqlite:///./sessions.db"
 # Example allowed origins for CORS
-ALLOWED_ORIGINS = ["http://localhost:4200"]
+ALLOWED_ORIGINS = ["http://localhost:4200"] if IS_DEV_MODE else ["https://tjr-scheduler.web.app"]
 # Set web=True if you intend to serve a web interface, False otherwise
-SERVE_WEB_INTERFACE = True
+# SERVE_WEB_INTERFACE = True
 
 app: FastAPI = get_fast_api_app(
     agent_dir=AGENT_DIR,
     session_db_url=SESSION_DB_URL,
     allow_origins=ALLOWED_ORIGINS,
-    web=SERVE_WEB_INTERFACE,
+    # web=SERVE_WEB_INTERFACE,
 )
 
 @app.post("/webhooks/paystack")
