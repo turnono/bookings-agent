@@ -32,14 +32,30 @@ import {
   transition,
 } from '@angular/animations';
 
+interface FunctionCall {
+  name: string;
+  arguments: any;
+}
+
 interface ChatMessage {
   role: 'user' | 'agent' | 'system';
   text: string;
   event?: string;
-  functionCall?: any;
+  functionCall?: FunctionCall;
   functionResponse?: any;
   timestamp?: Timestamp;
 }
+
+// Map function names to user-friendly one-liners
+const FUNCTION_FRIENDLY_MESSAGES: Record<string, string> = {
+  transfer_to_agent: 'Connecting you to an agent…',
+  availability_agent: 'Checking available slots…',
+  'availability_agent.getSlots': 'Checking available slots…',
+  select_time_slot: 'Preparing available time slots…',
+  create_paystack_checkout: 'Preparing payment…',
+  screening_question: 'Just a quick question…',
+  // Add more mappings as needed
+};
 
 @Component({
   selector: 'app-chat',
@@ -83,7 +99,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   errorMessage: string = '';
 
   // Interactive controls state
-  activeFunctionCall: any = null;
+  activeFunctionCall: FunctionCall | null = null;
+  detectedFunctionCalls: FunctionCall[] = [];
   screeningAnswer: string = '';
   selectedDate: Date | null = null;
   availableDates: string[] = [];
@@ -202,15 +219,32 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     for (const event of events) {
       if (event.content && event.content.parts) {
         for (const part of event.content.parts) {
-          // Internal logic: handle function calls and responses for UI triggers
+          // Extract and process function calls
           if (part.functionCall) {
-            this.activeFunctionCall = part.functionCall;
-            this.handleFunctionCall(part.functionCall);
+            const functionCall: FunctionCall = {
+              name: part.functionCall.name,
+              arguments: this.parseFunctionArguments(part.functionCall.args),
+            };
+            // Use friendly message if available
+            const friendlyText =
+              FUNCTION_FRIENDLY_MESSAGES[functionCall.name] || 'Processing…';
+            this.messages.push({
+              role: 'agent',
+              text: friendlyText,
+              functionCall: functionCall,
+              timestamp: Timestamp.now(),
+            });
+            this.activeFunctionCall = functionCall;
+            this.detectedFunctionCalls.push(functionCall);
+            console.log('Function call detected:', functionCall);
+            this.handleFunctionCall(functionCall);
+            messageAdded = true;
           } else if (part.functionResponse) {
             this.activeFunctionCall = null;
             this.handleFunctionResponse(part.functionResponse);
           }
-          // User-facing: only show text
+
+          // Display regular text messages
           if (part.text) {
             this.messages.push({
               role: 'agent',
@@ -235,7 +269,24 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.focusInput();
   }
 
-  handleFunctionCall(func: any) {
+  // Helper method to parse function arguments
+  parseFunctionArguments(args: any): any {
+    // If args is a string (JSON string), parse it
+    if (typeof args === 'string') {
+      try {
+        return JSON.parse(args);
+      } catch (e) {
+        console.error('Error parsing function arguments:', e);
+        return args; // Return as is if parsing fails
+      }
+    }
+
+    // If it's already an object, return it
+    return args;
+  }
+
+  // Updated to use FunctionCall interface
+  handleFunctionCall(func: FunctionCall) {
     // Reset all controls
     this.screeningAnswer = '';
     this.selectedDate = null;
@@ -243,26 +294,38 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.availableSlots = [];
     this.selectedSlot = '';
     this.paymentUrl = '';
+
     // Screening question
     if (func.name === 'screening_question') {
       // args: { question: string }
       // Show input for answer
     } else if (func.name === 'availability_agent.getSlots') {
-      // args: { validDates: string[] }
-      this.availableDates = func.args?.validDates || [];
+      // Extract validDates from arguments
+      this.availableDates = func.arguments?.validDates || [];
     } else if (func.name === 'select_time_slot') {
-      // args: { slots: string[] }
-      this.availableSlots = func.args?.slots || [];
+      // Extract slots from arguments
+      this.availableSlots = func.arguments?.slots || [];
     } else if (func.name === 'create_paystack_checkout') {
-      // args: { url: string }
-      this.paymentUrl = func.args?.url || '';
+      // Extract url from arguments
+      this.paymentUrl = func.arguments?.url || '';
     }
   }
 
   handleFunctionResponse(funcResp: any) {
-    // Optionally handle function response if needed
+    if (!funcResp || !funcResp.name) {
+      console.error('Invalid function response:', funcResp);
+      return;
+    }
+    console.log('Function response received:', funcResp);
+    // Use friendly message if available
+    const friendlyText = FUNCTION_FRIENDLY_MESSAGES[funcResp.name] || 'Done.';
+    this.messages.push({
+      role: 'agent',
+      text: friendlyText,
+      functionResponse: funcResp,
+      timestamp: Timestamp.now(),
+    });
     if (funcResp.name === 'availability_agent.getSlots') {
-      // If response contains slots, update availableSlots
       if (funcResp.response?.slots) {
         this.availableSlots = funcResp.response.slots;
       }

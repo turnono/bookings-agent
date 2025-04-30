@@ -27,8 +27,21 @@
               <ng-container *ngSwitchCase="'agent'">
                 <div class="agent-message-group">
                   <mat-icon class="chat-avatar" aria-label="Agent">person</mat-icon>
-                  <div class="chat-message-bubble mat-body-2">
-                    <span class="chat-message-content">{{ msg.text }}</span>
+                  <div class="chat-message-bubble mat-body-2" [class.function-call-bubble]="msg.functionCall"
+                    [class.function-response-bubble]="msg.functionResponse"
+                    [class.function-response-error]="msg.functionResponse && msg.functionResponse.error">
+                    <div class="function-inline-row">
+                      <ng-container *ngIf="msg.functionCall">
+                        <mat-icon class="function-status-icon function-call-icon" color="primary">play_arrow</mat-icon>
+                      </ng-container>
+                      <ng-container *ngIf="msg.functionResponse">
+                        <mat-icon *ngIf="!msg.functionResponse.error" class="function-status-icon function-success-icon"
+                          color="accent">check_circle</mat-icon>
+                        <mat-icon *ngIf="msg.functionResponse.error" class="function-status-icon function-error-icon"
+                          color="warn">error</mat-icon>
+                      </ng-container>
+                      <span class="function-inline-text">{{ msg.text }}</span>
+                    </div>
                     <span class="chat-timestamp mat-caption">{{ msg.timestamp?.toDate() | date:'shortTime' }}</span>
                   </div>
                 </div>
@@ -53,10 +66,11 @@
       <div *ngIf="errorMessage" class="error-message" (click)="dismissError()">
         {{ errorMessage }} <span class="dismiss">(tap to retry)</span>
       </div>
+
       <!-- Screening question -->
-      <ng-container *ngIf="activeFunctionCall?.name === 'screening_question'">
+      <ng-container *ngIf="activeFunctionCall && activeFunctionCall.name === 'screening_question'">
         <mat-form-field appearance="outline" class="w-100">
-          <mat-label>{{ activeFunctionCall.args?.question || 'Your answer' }}</mat-label>
+          <mat-label>{{ activeFunctionCall.arguments?.question || 'Your answer' }}</mat-label>
           <input matInput [(ngModel)]="screeningAnswer" (keyup.enter)="submitScreeningAnswer()" #chatInput
             aria-label="Screening answer input" />
         </mat-form-field>
@@ -65,8 +79,9 @@
           <mat-icon>send</mat-icon>
         </button>
       </ng-container>
+
       <!-- Date selection -->
-      <ng-container *ngIf="activeFunctionCall?.name === 'availability_agent.getSlots'">
+      <ng-container *ngIf="activeFunctionCall && activeFunctionCall.name === 'availability_agent.getSlots'">
         <mat-form-field appearance="outline" class="w-100">
           <mat-label>Select a date</mat-label>
           <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [matDatepickerFilter]="dateFilter"
@@ -78,17 +93,21 @@
           <mat-icon>send</mat-icon>
         </button>
       </ng-container>
+
       <!-- Time-slot selection -->
-      <ng-container *ngIf="activeFunctionCall?.name === 'select_time_slot' && availableSlots.length">
+      <ng-container
+        *ngIf="activeFunctionCall && activeFunctionCall.name === 'select_time_slot' && availableSlots.length">
         <mat-chip-listbox aria-label="Available time slots">
           <mat-chip-option *ngFor="let slot of availableSlots" (click)="submitSlotSelection(slot)">{{ slot
             }}</mat-chip-option>
         </mat-chip-listbox>
       </ng-container>
+
       <!-- Payment -->
-      <ng-container *ngIf="activeFunctionCall?.name === 'create_paystack_checkout' && paymentUrl">
+      <ng-container *ngIf="activeFunctionCall && activeFunctionCall.name === 'create_paystack_checkout' && paymentUrl">
         <button mat-raised-button color="accent" (click)="goToPayment()">Pay Now</button>
       </ng-container>
+
       <!-- Default text input -->
       <ng-container *ngIf="!activeFunctionCall">
         <mat-form-field appearance="outline" class="w-100 chat-input-field">
