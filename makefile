@@ -1,6 +1,7 @@
 include .env
 export 
 
+# Deploy the agent service to Google Cloud Run
 deploy:
 	gcloud run deploy ${AGENT_SERVICE_NAME} \
 	--source . \
@@ -11,10 +12,17 @@ deploy:
 	--service-account ${AGENT_SERVICE_ACCOUNT} \
 	--set-env-vars="GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION},GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI},GOOGLE_API_KEY=${GOOGLE_API_KEY}"
 
+# Delete the agent service from Google Cloud Run
+delete:
+	gcloud run services delete ${AGENT_SERVICE_NAME} \
+	--region ${GOOGLE_CLOUD_LOCATION}
+
 # Start the Firestore emulator in one terminal:
 #   make firestore-emulator
 # Then run the app in another terminal:
 #   make dev
+# Then run the frontend in another terminal:
+#   make frontend-do
 
 firestore-emulator:
 	@echo "[Firestore Emulator] Starting Firestore emulator. Run this in its own terminal window!"
@@ -27,9 +35,6 @@ dev:
 frontend-do:
 	cd frontend && npm start
 
-delete:
-	gcloud run services delete ${AGENT_SERVICE_NAME} \
-	--region ${GOOGLE_CLOUD_LOCATION}
 
 ngrok:
 	@echo "[ngrok] Launching tunnel to smart-earwig-completely.ngrok-free.app:8000. Run this in its own terminal!"

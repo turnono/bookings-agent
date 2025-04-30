@@ -1,106 +1,60 @@
-# Booking Agent
+# Bookings Agent
 
-A specialized agent system for guiding social media users through the appointment booking process, with intelligent screening and calendar protection.
+Bookings Agent is an intelligent, modular system for managing appointment bookings, user screening, and calendar protection—designed for seamless integration with social media and modern web interfaces.
 
-## Purpose
+## Project Objective
 
-The Booking Agent system serves as an intelligent intermediary between social media inquiries and your calendar:
+The goal of this project is to automate and streamline the process of booking appointments, especially for users coming from social media platforms. It ensures only relevant, serious inquiries are allowed through, protects the owner's private time, and provides a professional, guided experience from first contact to confirmed booking.
 
-1. **Social Media Gateway**: Efficiently handles appointment booking requests from users coming from social media platforms.
+## What's Available
 
-2. **User Screening**: Filters users by checking topic relevance and seriousness before showing available times.
+### Backend (Python, FastAPI, Google ADK)
 
-3. **Smart Calendar Management**:
+- **Root Booking Guide Agent**: Orchestrates the booking flow, screens users, manages session progression, and handles calendar logic.
+- **Sub-Agents**:
+  - **Booking Validator**: Screens users for topic relevance and seriousness before showing available slots.
+  - **Inquiry Collector**: Collects general inquiries and saves them to Firestore, without promising a reply.
+  - **Payment Agent**: Handles Paystack payment sessions and webhook verification for paid bookings.
+- **Firestore Integration**: Stores user preferences, booking details, validation results, and inquiries in namespaced collections.
+- **Calendar Management**: Integrates with Google Calendar to show only available slots, prevent double bookings, and respect blocked/private times.
+- **API Endpoints**: Exposes endpoints for chat, payment webhooks, and payment status verification.
+- **Deployment**: Designed for Google Cloud Run deployment, with local development supported via Firestore emulator and Makefile scripts.
 
-   - Only shows available time slots based on owner preferences
-   - Protects private time (no bookings during blocked times)
-   - Prevents double bookings or calendar conflicts
+### Frontend (Angular 19)
 
-4. **Seamless Experience**: Maintains a professional, smooth experience from first message to confirmed booking.
+- **Modern Chat UI**: Provides a real-time chat interface for users to interact with the agent, view messages, and complete bookings.
+- **Session Management**: Automatically creates and manages user sessions, supporting anonymous sign-in via Firebase.
+- **Integration**: Communicates with the backend via a `/run` endpoint, with proxy configuration for local development.
+- **Material Design**: Uses Angular Material for a polished, responsive user experience.
 
 ## System Architecture
 
-The Booking Agent consists of two specialized agents:
-
-1. **Booking Guide Agent (Root)**: Primary agent that screens users, presents available time slots, and handles the booking process.
-
-2. **Booking Validator Agent (Sub-agent)**: Specialized agent for validating appointment requests, checking calendar availability, and ensuring they don't conflict with private time.
+- **Backend**: Python, FastAPI, Google ADK, Firestore, Google Calendar, Paystack integration.
+- **Frontend**: Angular 19, Angular Material, Firebase Auth, RxJS.
 
 ## Key Features
 
-- Thorough user screening before showing available slots
-- Topic relevance verification to ensure alignment with expertise
-- Private time protection to maintain personal boundaries
-- Double booking prevention
-- Smart appointment suggestions based on conversation context
-- Appointment confirmation and reminders
+- User screening and topic validation before showing available slots
+- Private time and double booking protection
+- Smart appointment suggestions and reminders
+- Payment integration for paid bookings
+- Inquiry collection for general requests
 
-## Tools
+## Data Storage
 
-The root agent (Booking Guide) has access to these function tools:
+- **Firestore Collections**:
+  - `booking_memories`: Owner preferences, blocked times, recurring patterns
+  - `booking_bookings`: Appointment details, status, user info
+  - `booking_validations`: Validation and screening results
+  - `inquiries`: General user inquiries
 
-- **MemoryTool (Firestore)**: Store and retrieve user preferences, booking history, and blocked times
-- **ValidationTool**: Screen appointment requests for relevance and seriousness
-- **CalendarTool**: Check availability while respecting private time
-- **BookingConfirmationTool**: Send appointment confirmations to users
+## Development & Deployment
 
-## Firestore Collections
+- **Local Development**: Use the Firestore emulator and Makefile for running backend and frontend locally.
+- **Cloud Deployment**: Deploy to Google Cloud Run using the provided Makefile.
+- **Frontend**: Run with `npm start` in the `frontend/` directory.
+- **Backend**: Run with `python main.py` (ensure Firestore credentials are set).
 
-All Firestore collections are namespaced for the booking system:
+## Summary
 
-- **booking_memories**: For storing owner preferences, blocked times, and recurring patterns
-- **booking_bookings**: For tracking appointment details, status, and user information
-- **booking_validations**: For storing validation records and screening results
-
-## Project Structure
-
-```
-bookings_agent/
-├── __init__.py
-├── agent.py                      # Root agent definition
-├── prompt.py                     # Root agent prompt
-├── models.py                     # Model definitions
-├── firestore_service.py          # Firestore service
-├── tools/
-│   ├── __init__.py
-│   ├── current_time.py           # Time utility
-│   └── interact_with_firestore.py # Firestore interaction
-└── sub_agents/
-    ├── __init__.py
-    └── booking_validator/        # Booking Validator sub-agent
-        ├── __init__.py
-        ├── agent.py              # Validator agent definition
-        └── prompts.py            # Validator agent prompt
-```
-
-## Booking Process Flow
-
-1. **Initial Screening**: When a user requests an appointment, the agent asks qualifying questions to assess relevance and seriousness.
-
-2. **Topic Validation**: The agent verifies that the appointment topic falls within the owner's expertise.
-
-3. **Calendar Check**: If the user passes screening, the agent shows available time slots that respect private time.
-
-4. **Appointment Details**: The agent collects necessary details for the appointment.
-
-5. **Confirmation**: The appointment is confirmed and added to the calendar, with confirmation sent to the user.
-
-## Getting Started
-
-1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Set up Firestore credentials
-
-   - Obtain a Google Cloud service account key with Firestore access (JSON file).
-   - Set the environment variable `GOOGLE_APPLICATION_CREDENTIALS` to the path of your service account file before running the app:
-
-     ```bash
-     export GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/service-account.json
-     ```
-
-   - This is required for Firestore access unless you are using the Firestore emulator.
-
-4. Configure your calendar preferences and blocked times
-5. Run the main application: `python main.py`
-
-<!-- (.venv) MacBook-Pro-3:bookings-agent abdullah$ GOOGLE_APPLICATION_CREDENTIALSOkay, so, seems everything is working at least for now. The issue with the service account I resolved with by using the Google application credentials in my terminal. So we need to make a note of that in the readme to set the Google application credentials with the path to the service account. -->
+Bookings Agent is a robust, extensible platform for managing appointment bookings with intelligent screening, calendar protection, and a modern chat-based frontend. It is suitable for professionals and businesses seeking to automate and secure their booking workflows, especially when handling high volumes of social media inquiries.
