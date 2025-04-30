@@ -63,9 +63,7 @@
     </div>
     <div class="chat-input-row">
       <!-- Error message area (dismissible) -->
-      <div *ngIf="errorMessage" class="error-message" (click)="dismissError()">
-        {{ errorMessage }} <span class="dismiss">(tap to retry)</span>
-      </div>
+      <!-- Removed error message div, now using snackbar for errors -->
 
       <!-- Screening question -->
       <ng-container *ngIf="activeFunctionCall && activeFunctionCall.name === 'screening_question'">

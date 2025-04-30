@@ -1,0 +1,15 @@
+<div>
+  <h2>Slot Picker Dialog</h2>
+  <pre>{{ args | json }}</pre>
+</div>
+
+<div class="dialog-content">
+  <h2>Select a Time Slot</h2>
+  <mat-chip-listbox [(ngModel)]="selectedSlot">
+    <mat-chip-option *ngFor="let slot of args?.slots" [value]="slot">{{ slot }}</mat-chip-option>
+  </mat-chip-listbox>
+  <div class="dialog-actions">
+    <button mat-button mat-dialog-close>Cancel</button>
+    <button mat-raised-button color="primary" (click)="submit()">Select</button>
+  </div>
+</div>

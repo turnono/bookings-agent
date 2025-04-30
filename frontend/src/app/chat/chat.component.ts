@@ -23,6 +23,14 @@ import { Timestamp } from '@angular/fire/firestore';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { MatDialog } from '@angular/material/dialog';
+import { GenericFunctionDialogComponent } from '../dialogs/generic-function-dialog.component';
+import { QualifierDialogComponent } from '../dialogs/qualifier-dialog.component';
+import { ServiceSelectionDialogComponent } from '../dialogs/service-selection-dialog.component';
+import { DatePickerDialogComponent } from '../dialogs/date-picker-dialog.component';
+import { SlotPickerDialogComponent } from '../dialogs/slot-picker-dialog.component';
+import { PaymentConfirmationDialogComponent } from '../dialogs/payment-confirmation-dialog.component';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
   trigger,
@@ -55,6 +63,16 @@ const FUNCTION_FRIENDLY_MESSAGES: Record<string, string> = {
   create_paystack_checkout: 'Preparing payment…',
   screening_question: 'Just a quick question…',
   // Add more mappings as needed
+};
+
+const FUNCTION_DIALOG_MAP: Record<string, any> = {
+  qualifyUser: QualifierDialogComponent,
+  selectService: ServiceSelectionDialogComponent,
+  getAvailableDates: DatePickerDialogComponent,
+  getAvailableSlots: SlotPickerDialogComponent,
+  confirmPayment: PaymentConfirmationDialogComponent,
+  transfer_to_agent: QualifierDialogComponent,
+  get_available_time_slots: SlotPickerDialogComponent,
 };
 
 @Component({
@@ -123,7 +141,11 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private mutationObserver: MutationObserver | null = null;
 
-  constructor(private agentService: AgentService) {}
+  constructor(
+    private agentService: AgentService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
+  ) {}
 
   ngOnInit() {
     this.newChat();
@@ -168,13 +190,13 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
   handleError(message: string) {
     this.errorMessage = message;
-    if (!this.messages.some((m) => m.role === 'system' && m.text === message)) {
-      this.messages.push({
-        role: 'system',
-        text: message,
-        timestamp: Timestamp.now(),
+    this.snackBar
+      .open(message + ' (tap to retry)', 'Retry', { duration: 5000 })
+      .onAction()
+      .subscribe(() => {
+        // Retry logic placeholder
+        // this.retryLastAction?.();
       });
-    }
     this.loading = false;
     this.focusInput();
   }
@@ -294,6 +316,67 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.availableSlots = [];
     this.selectedSlot = '';
     this.paymentUrl = '';
+
+    // Open the mapped dialog for this function call, only if mapped
+    const dialogComponent = FUNCTION_DIALOG_MAP[func.name];
+    if (dialogComponent) {
+      const dialogRef = this.dialog.open(dialogComponent, {
+        data: {
+          functionName: func.name,
+          arguments: func.arguments,
+        },
+      });
+      dialogRef.afterClosed().subscribe((result) => {
+        // Always scroll to bottom after dialog closes
+        this.scrollToBottom();
+
+        if (result !== undefined && result !== null && result !== '') {
+          // User made a selection
+          this.messages.push({
+            role: 'user',
+            text: result,
+            timestamp: Timestamp.now(),
+          });
+          this.scrollToBottom();
+
+          // Send the user's choice to the agent
+          this.loading = true;
+          this.agentService.sendMessage(result).subscribe({
+            next: (events) => {
+              this.handleAgentEvents(events);
+              this.scrollToBottom();
+              this.focusInput();
+            },
+            error: () => {
+              this.handleError('Error contacting agent.');
+              this.scrollToBottom();
+            },
+          });
+        } else {
+          // User cancelled the dialog
+          this.messages.push({
+            role: 'user',
+            text: 'cancel',
+            timestamp: Timestamp.now(),
+          });
+          this.scrollToBottom();
+
+          // Optionally, send 'cancel' to the agent as well
+          this.loading = true;
+          this.agentService.sendMessage('cancel').subscribe({
+            next: (events) => {
+              this.handleAgentEvents(events);
+              this.scrollToBottom();
+              this.focusInput();
+            },
+            error: () => {
+              this.handleError('Error contacting agent.');
+              this.scrollToBottom();
+            },
+          });
+        }
+      });
+    }
 
     // Screening question
     if (func.name === 'screening_question') {
@@ -455,4 +538,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
   }
+
+  // Placeholder for retry logic, resolves linter error
+  // retryLastAction?(): void {}
 }

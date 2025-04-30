@@ -1,0 +1,17 @@
+<div class="dialog-content">
+  <h2>Qualifier</h2>
+  <mat-radio-group [(ngModel)]="selectedOption">
+    <mat-radio-button *ngFor="let option of args?.options" [value]="option">{{ option }}</mat-radio-button>
+    <mat-radio-button value="Other">Other</mat-radio-button>
+  </mat-radio-group>
+  <div *ngIf="selectedOption === 'Other'">
+    <mat-form-field appearance="outline">
+      <mat-label>Other</mat-label>
+      <input matInput [(ngModel)]="otherValue" />
+    </mat-form-field>
+  </div>
+  <div class="dialog-actions">
+    <button mat-button mat-dialog-close>Cancel</button>
+    <button mat-raised-button color="primary" (click)="submit()">Submit</button>
+  </div>
+</div>

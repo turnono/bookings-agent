@@ -1,0 +1,17 @@
+<div>
+  <h2>Service Selection Dialog</h2>
+  <pre>{{ args | json }}</pre>
+</div>
+
+<div class="dialog-content">
+  <h2>Select a Service</h2>
+  <mat-button-toggle-group [(ngModel)]="selectedService" appearance="legacy">
+    <mat-button-toggle *ngFor="let service of args?.services" [value]="service">
+      {{ service }}
+    </mat-button-toggle>
+  </mat-button-toggle-group>
+  <div class="dialog-actions">
+    <button mat-button mat-dialog-close>Cancel</button>
+    <button mat-raised-button color="primary" (click)="submit()">Select</button>
+  </div>
+</div>

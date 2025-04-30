@@ -36,3 +36,5 @@ ngrok:
 	ngrok http --url=smart-earwig-completely.ngrok-free.app 8000
 	
 
+build-frontend:
+	cd frontend && ng build --configuration=production && firebase deploy --only hosting:tjr-scheduler --project=taajirah

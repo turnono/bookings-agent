@@ -7,6 +7,12 @@ env/
 env.*
 # Ignore all environment variable files and folders
 
+frontend/dist/
+frontend/node_modules/
+.firebase/
+.vscode/
+
+
 sim-guide-agent-service-account.json
 client_secret_*.json
 
