@@ -3,11 +3,15 @@
     "target": "http://localhost:8000",
     "secure": false
   },
+  "/run_sse": {
+    "target": "http://localhost:8000",
+    "secure": false
+  },
   "/api": {
     "target": "http://localhost:8000",
     "secure": false
   },
-  "/apps": {
+  "/webhooks": {
     "target": "http://localhost:8000",
     "secure": false
   }

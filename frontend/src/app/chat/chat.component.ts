@@ -140,6 +140,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private mutationObserver: MutationObserver | null = null;
+  private firebaseUserId: string | null = null;
 
   constructor(
     private agentService: AgentService,
@@ -148,7 +149,16 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.newChat();
+    this.agentService.getUserId$().subscribe({
+      next: (uid) => {
+        this.firebaseUserId = uid;
+        this.newChat(); // Only start chat after UID is ready
+      },
+      error: (err) => {
+        console.error('Error getting Firebase UID:', err);
+        this.handleError('Could not sign in anonymously.');
+      },
+    });
   }
 
   ngAfterViewInit() {
@@ -206,6 +216,10 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   sendMessage() {
+    if (!this.firebaseUserId) {
+      this.handleError('Firebase UID not ready yet.');
+      return;
+    }
     const input = this.userInput.trim();
     if (!input) return;
     this.messages.push({
@@ -215,22 +229,32 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.userInput = '';
     this.loading = true;
-
-    // Scroll to bottom right after adding the user message
     this.scrollToBottom();
-
     this.agentService
-      .sendMessage(input)
+      .sendMessage(
+        input,
+        this.agentService.appName,
+        this.firebaseUserId!,
+        this.agentService.sessionId
+      )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (events) => {
           this.handleAgentEvents(events);
-          // No need to call scrollToBottom here as handleAgentEvents handles it
           this.focusInput();
         },
-        error: () => {
-          this.handleError('Error contacting agent.');
-          this.scrollToBottom(); // Make sure to scroll even in case of error
+        error: (err: any) => {
+          console.error('AgentService error:', err);
+          let errorMsg = 'Error contacting agent.';
+          if (err?.error?.message) {
+            errorMsg += ` Details: ${err.error.message}`;
+          } else if (err?.message) {
+            errorMsg += ` Details: ${err.message}`;
+          } else if (typeof err === 'string') {
+            errorMsg += ` Details: ${err}`;
+          }
+          this.handleError(errorMsg);
+          this.scrollToBottom();
         },
       });
   }
@@ -327,53 +351,77 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
         },
       });
       dialogRef.afterClosed().subscribe((result) => {
-        // Always scroll to bottom after dialog closes
         this.scrollToBottom();
-
         if (result !== undefined && result !== null && result !== '') {
-          // User made a selection
           this.messages.push({
             role: 'user',
             text: result,
             timestamp: Timestamp.now(),
           });
           this.scrollToBottom();
-
-          // Send the user's choice to the agent
           this.loading = true;
-          this.agentService.sendMessage(result).subscribe({
-            next: (events) => {
-              this.handleAgentEvents(events);
-              this.scrollToBottom();
-              this.focusInput();
-            },
-            error: () => {
-              this.handleError('Error contacting agent.');
-              this.scrollToBottom();
-            },
-          });
+          this.agentService
+            .sendMessage(
+              result,
+              this.agentService.appName,
+              this.firebaseUserId!,
+              this.agentService.sessionId
+            )
+            .subscribe({
+              next: (events) => {
+                this.handleAgentEvents(events);
+                this.scrollToBottom();
+                this.focusInput();
+              },
+              error: (err: any) => {
+                console.error('AgentService error:', err);
+                let errorMsg = 'Error contacting agent.';
+                if (err?.error?.message) {
+                  errorMsg += ` Details: ${err.error.message}`;
+                } else if (err?.message) {
+                  errorMsg += ` Details: ${err.message}`;
+                } else if (typeof err === 'string') {
+                  errorMsg += ` Details: ${err}`;
+                }
+                this.handleError(errorMsg);
+                this.scrollToBottom();
+              },
+            });
         } else {
-          // User cancelled the dialog
           this.messages.push({
             role: 'user',
             text: 'cancel',
             timestamp: Timestamp.now(),
           });
           this.scrollToBottom();
-
-          // Optionally, send 'cancel' to the agent as well
           this.loading = true;
-          this.agentService.sendMessage('cancel').subscribe({
-            next: (events) => {
-              this.handleAgentEvents(events);
-              this.scrollToBottom();
-              this.focusInput();
-            },
-            error: () => {
-              this.handleError('Error contacting agent.');
-              this.scrollToBottom();
-            },
-          });
+          this.agentService
+            .sendMessage(
+              'cancel',
+              this.agentService.appName,
+              this.firebaseUserId!,
+              this.agentService.sessionId
+            )
+            .subscribe({
+              next: (events) => {
+                this.handleAgentEvents(events);
+                this.scrollToBottom();
+                this.focusInput();
+              },
+              error: (err: any) => {
+                console.error('AgentService error:', err);
+                let errorMsg = 'Error contacting agent.';
+                if (err?.error?.message) {
+                  errorMsg += ` Details: ${err.error.message}`;
+                } else if (err?.message) {
+                  errorMsg += ` Details: ${err.message}`;
+                } else if (typeof err === 'string') {
+                  errorMsg += ` Details: ${err}`;
+                }
+                this.handleError(errorMsg);
+                this.scrollToBottom();
+              },
+            });
         }
       });
     }
@@ -424,18 +472,30 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.loading = true;
     this.scrollToBottom();
-
     this.agentService
-      .sendMessage(this.screeningAnswer)
+      .sendMessage(
+        this.screeningAnswer,
+        this.agentService.appName,
+        this.firebaseUserId!,
+        this.agentService.sessionId
+      )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (events) => {
           this.handleAgentEvents(events);
-          // No need to call scrollToBottom here as handleAgentEvents handles it
           this.focusInput();
         },
-        error: () => {
-          this.handleError('Error contacting agent.');
+        error: (err: any) => {
+          console.error('AgentService error:', err);
+          let errorMsg = 'Error contacting agent.';
+          if (err?.error?.message) {
+            errorMsg += ` Details: ${err.error.message}`;
+          } else if (err?.message) {
+            errorMsg += ` Details: ${err.message}`;
+          } else if (typeof err === 'string') {
+            errorMsg += ` Details: ${err}`;
+          }
+          this.handleError(errorMsg);
           this.scrollToBottom();
         },
       });
@@ -453,18 +513,30 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.loading = true;
     this.scrollToBottom();
-
     this.agentService
-      .sendMessage(dateStr)
+      .sendMessage(
+        dateStr,
+        this.agentService.appName,
+        this.firebaseUserId!,
+        this.agentService.sessionId
+      )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (events) => {
           this.handleAgentEvents(events);
-          // No need to call scrollToBottom here as handleAgentEvents handles it
           this.focusInput();
         },
-        error: () => {
-          this.handleError('Error contacting agent.');
+        error: (err: any) => {
+          console.error('AgentService error:', err);
+          let errorMsg = 'Error contacting agent.';
+          if (err?.error?.message) {
+            errorMsg += ` Details: ${err.error.message}`;
+          } else if (err?.message) {
+            errorMsg += ` Details: ${err.message}`;
+          } else if (typeof err === 'string') {
+            errorMsg += ` Details: ${err}`;
+          }
+          this.handleError(errorMsg);
           this.scrollToBottom();
         },
       });
@@ -481,18 +553,30 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.loading = true;
     this.scrollToBottom();
-
     this.agentService
-      .sendMessage(slot)
+      .sendMessage(
+        slot,
+        this.agentService.appName,
+        this.firebaseUserId!,
+        this.agentService.sessionId
+      )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (events) => {
           this.handleAgentEvents(events);
-          // No need to call scrollToBottom here as handleAgentEvents handles it
           this.focusInput();
         },
-        error: () => {
-          this.handleError('Error contacting agent.');
+        error: (err: any) => {
+          console.error('AgentService error:', err);
+          let errorMsg = 'Error contacting agent.';
+          if (err?.error?.message) {
+            errorMsg += ` Details: ${err.error.message}`;
+          } else if (err?.message) {
+            errorMsg += ` Details: ${err.message}`;
+          } else if (typeof err === 'string') {
+            errorMsg += ` Details: ${err}`;
+          }
+          this.handleError(errorMsg);
           this.scrollToBottom();
         },
       });
@@ -507,6 +591,10 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   newChat() {
+    if (!this.firebaseUserId) {
+      this.handleError('Firebase UID not ready yet.');
+      return;
+    }
     this.agentService.startNewSession();
     this.messages = [
       { role: 'system', text: 'Welcome! Start chatting with the agent.' },
@@ -514,7 +602,12 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.userInput = '';
     this.loading = false;
     this.agentService
-      .createSession()
+      .createOrUpdateSession(
+        this.agentService.appName,
+        this.firebaseUserId!,
+        this.agentService.sessionId,
+        {}
+      )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
@@ -522,8 +615,17 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
           this.scrollToBottom();
           this.focusInput();
         },
-        error: () => {
-          this.handleError('Error creating session.');
+        error: (err: any) => {
+          console.error('AgentService error:', err);
+          let errorMsg = 'Error creating session.';
+          if (err?.error?.message) {
+            errorMsg += ` Details: ${err.error.message}`;
+          } else if (err?.message) {
+            errorMsg += ` Details: ${err.message}`;
+          } else if (typeof err === 'string') {
+            errorMsg += ` Details: ${err}`;
+          }
+          this.handleError(errorMsg);
         },
       });
   }
@@ -534,11 +636,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       this.mutationObserver.disconnect();
       this.mutationObserver = null;
     }
-
     this.destroy$.next();
     this.destroy$.complete();
   }
-
-  // Placeholder for retry logic, resolves linter error
-  // retryLastAction?(): void {}
 }

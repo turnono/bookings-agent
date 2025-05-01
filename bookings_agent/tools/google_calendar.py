@@ -10,7 +10,7 @@ SCOPES = [
           'https://www.googleapis.com/auth/calendar',]
 
 # Path to your OAuth2 credentials file (downloaded from Google Cloud Console)
-SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), '../../sim-guide-agent-service-account.json')
+SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), '../../taajirah-agents-service-account.json')
 calendar_id = os.getenv('BOOKING_CALENDAR_ID')
 time_zone = os.getenv('BOOKING_TIMEZONE')
 

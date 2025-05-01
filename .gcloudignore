@@ -1,4 +1,4 @@
-# Python
+# Exclude Python cache and build artifacts
 __pycache__/
 *.py[cod]
 *$py.class
@@ -38,7 +38,7 @@ venv.bak/
 
 # Docker files
 .dockerignore
-Dockerfile
+# Dockerfile
 
 # Other
 .DS_Store
@@ -53,4 +53,4 @@ frontend/
 images/
 
 # Node modules (in case any exist at project root or subdirs)
-node_modules/
+node_modules/ 

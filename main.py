@@ -9,14 +9,16 @@ from bookings_agent.sub_agents.payment_agent.paystack_api import PaystackAPI
 from bookings_agent.tools.interact_with_firestore import interact_with_firestore
 
 IS_DEV_MODE = os.getenv("ENV").lower() == "development"
+DEPLOYED_CLOUD_SERVICE_URL = os.getenv("DEPLOYED_CLOUD_SERVICE_URL")
 
+print(f"DEPLOYED_CLOUD_SERVICE_URL: {DEPLOYED_CLOUD_SERVICE_URL}")
 
 # Get the directory where main.py is located
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Example session DB URL (e.g., SQLite)
 SESSION_DB_URL = "sqlite:///./sessions.db"
 # Example allowed origins for CORS
-ALLOWED_ORIGINS = ["http://localhost:4200"] if IS_DEV_MODE else ["https://tjr-scheduler.web.app"]
+ALLOWED_ORIGINS = ["*"]
 # Set web=True if you intend to serve a web interface, False otherwise
 SERVE_WEB_INTERFACE = False
 
@@ -102,10 +104,6 @@ async def payment_status(reference: str = Query(...)):
         "booking": booking,
         "booking_confirmed": status_ == "success"
     }
-
-@app.options("/run")
-async def options_run():
-    return Response(status_code=200)
 
 if __name__ == "__main__":
     # Use the PORT environment variable provided by Cloud Run, defaulting to 8080
