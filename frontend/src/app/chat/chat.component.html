@@ -30,7 +30,7 @@
                   <div class="chat-message-bubble mat-body-2" [class.function-call-bubble]="msg.functionCall"
                     [class.function-response-bubble]="msg.functionResponse"
                     [class.function-response-error]="msg.functionResponse && msg.functionResponse.error">
-                    <div class="function-inline-row">
+                    <div [class.function-inline-row]="msg.functionCall || msg.functionResponse">
                       <ng-container *ngIf="msg.functionCall">
                         <mat-icon class="function-status-icon function-call-icon" color="primary">play_arrow</mat-icon>
                       </ng-container>
@@ -40,7 +40,8 @@
                         <mat-icon *ngIf="msg.functionResponse.error" class="function-status-icon function-error-icon"
                           color="warn">error</mat-icon>
                       </ng-container>
-                      <span class="function-inline-text">{{ msg.text }}</span>
+                      <span [class.function-inline-text]="msg.functionCall || msg.functionResponse"
+                        class="chat-message-content">{{ msg.text }}</span>
                     </div>
                     <span class="chat-timestamp mat-caption">{{ msg.timestamp?.toDate() | date:'shortTime' }}</span>
                   </div>

@@ -14,7 +14,8 @@ export class AgentService {
   private _firebaseUid: string | null = null;
   private _authReady: Promise<string>;
 
-  private deploymentCloudUrl = environment.apiUrl.agentService;
+  // Use the environment configuration
+  private baseUrl = environment.apiUrl.agentService;
 
   constructor(private http: HttpClient, private auth: Auth) {
     this._authReady = this.ensureSignedIn();
@@ -84,7 +85,7 @@ export class AgentService {
   ) {
     return this.http
       .post<any>(
-        this.deploymentCloudUrl + '/run_sse', // Use the built-in ADK endpoint
+        `${this.baseUrl}/run_sse`, // Use the built-in ADK endpoint
         {
           app_name: appName,
           user_id: userId,
@@ -126,7 +127,7 @@ export class AgentService {
     sessionId: string,
     state: any
   ) {
-    const url = `${this.deploymentCloudUrl}/apps/${appName}/users/${userId}/sessions/${sessionId}`;
+    const url = `${this.baseUrl}/apps/${appName}/users/${userId}/sessions/${sessionId}`;
 
     return this.http.post<any>(url, { state });
   }

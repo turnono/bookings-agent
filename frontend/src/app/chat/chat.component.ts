@@ -109,9 +109,7 @@ const FUNCTION_DIALOG_MAP: Record<string, any> = {
   ],
 })
 export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
-  messages: ChatMessage[] = [
-    { role: 'system', text: 'Welcome! Start chatting with the agent.' },
-  ];
+  messages: ChatMessage[] = [];
   userInput: string = '';
   loading = false;
   errorMessage: string = '';
@@ -597,7 +595,11 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.agentService.startNewSession();
     this.messages = [
-      { role: 'system', text: 'Welcome! Start chatting with the agent.' },
+      {
+        role: 'agent',
+        text: 'Hello! I’m SchedulerAgent, the booking assistant for Abdullah Abrahams. How can I help you today?',
+        timestamp: Timestamp.now(),
+      },
     ];
     this.userInput = '';
     this.loading = false;
@@ -612,8 +614,11 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe({
         next: () => {
           console.log('Session created successfully');
-          this.scrollToBottom();
-          this.focusInput();
+          // Ensure greeting is visible by scrolling after a short delay
+          setTimeout(() => {
+            this.scrollToBottom();
+            this.focusInput();
+          }, 100);
         },
         error: (err: any) => {
           console.error('AgentService error:', err);

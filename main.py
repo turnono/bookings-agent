@@ -18,7 +18,7 @@ AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Example session DB URL (e.g., SQLite)
 SESSION_DB_URL = "sqlite:///./sessions.db"
 # Example allowed origins for CORS
-ALLOWED_ORIGINS = ["*"]
+ALLOWED_ORIGINS = ["https://tjr-scheduler.web.app", DEPLOYED_CLOUD_SERVICE_URL]
 # Set web=True if you intend to serve a web interface, False otherwise
 SERVE_WEB_INTERFACE = False
 

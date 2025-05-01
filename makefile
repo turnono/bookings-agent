@@ -14,7 +14,7 @@ firestore-emulator:
 
 dev:
 	@echo "[Dev Server] Starting ADK API server. Run this in a separate terminal after the emulator is running!"
-	FIRESTORE_EMULATOR_HOST=localhost:8086 adk api_server
+	FIRESTORE_EMULATOR_HOST=localhost:8086 adk api_server --allow_origins="http://localhost:4200"
 
 frontend-do:
 	cd frontend && npm start
