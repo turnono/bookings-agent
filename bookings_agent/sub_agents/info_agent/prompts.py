@@ -1,6 +1,6 @@
 # Introductory Agent Master Instructions
 
-INTRO_AGENT_PROMPT = '''
+INFO_AGENT_PROMPT = '''
 # 🧠 INTRODUCTORY AGENT MASTER INSTRUCTIONS (UPDATED)
 
 ## Purpose
