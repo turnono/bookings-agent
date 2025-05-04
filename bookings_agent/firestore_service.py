@@ -255,169 +255,55 @@ class FirestoreService:
             
         return results
 
-    # BOOKINGS
-    def _infer_topic_tags_from_text(self, text: str) -> list:
+    # SESSIONS
+    def save_session(self, user_id: str, session_data: Dict[str, Any]) -> str:
         """
-        Infer topic tags from the provided text using the new taxonomy.
-        """
-        text = text.lower()
-        tags = []
-        if any(word in text for word in ["web", "website", "frontend", "backend", "angular", "firebase"]):
-            tags.append("web-development")
-        if "ai" in text or "agent" in text:
-            tags.append("ai-agents")
-        if "quran" in text or "arabic" in text:
-            tags.append("quranic-arabic")
-        if "islamic" in text or "imam" in text or "religious" in text:
-            tags.append("islamic-studies")
-        if "education" in text or "school" in text or "curriculum" in text:
-            tags.append("education")
-        if "family" in text:
-            tags.append("family-life")
-        if "fitness" in text or "swim" in text or "exercise" in text:
-            tags.append("fitness")
-        if "social" in text or "tiktok" in text or "instagram" in text:
-            tags.append("social-media")
-        if "tech" in text or "trend" in text or "industry" in text:
-            tags.append("tech-trends")
-        if "startup" in text or "business" in text or "solopreneur" in text:
-            tags.append("startup-growth")
-        if "personal" in text or "growth" in text or "resilience" in text:
-            tags.append("personal-development")
-        if "leader" in text or "leadership" in text:
-            tags.append("leadership")
-        if not tags:
-            tags.append("general")
-        return tags
-
-    def create_booking(self, user_id: str, booking_data: Dict[str, Any]) -> str:
-        """
-        Create a booking under users/{user_id}/bookings/{booking_id}.
+        Create or update a session record under users/{user_id}/sessions/{session_id}.
+        
         Fields:
-            - id: string (auto-generated if not provided)
-            - user_id: string
-            - status: string (pending, confirmed, canceled, expired)
+            - email: string
+            - intent: string
+            - topic: string
+            - screening_answer: string
+            - booking_slot: timestamp
             - created_at: timestamp
             - updated_at: timestamp
-            - selected_slot: object {start, end}
-            - payment_status: string (pending, completed, failed, etc.)
-            - discussion_summary: string (short summary of user's topic)
-            - topic_tags: array of strings (from taxonomy)
-            - agent_notes: string (optional)
-            - source: string (optional)
-        Only lightweight discussion_summary and topic_tags are stored for privacy.
-        Note: For efficient queries on payment_status (e.g., all pending bookings), ensure a Firestore index exists on payment_status in users/{user_id}/bookings.
+        
+        Args:
+            user_id: The user ID
+            session_data: Dictionary containing session information
+            
+        Returns:
+            session_id: The ID of the created/updated session
         """
-        bookings_collection = self.client.collection("users").document(user_id).collection("bookings")
-        booking_data_copy = booking_data.copy()
-        booking_id = booking_data_copy.get("id")
-        if not booking_id:
-            booking_id = bookings_collection.document().id
-            booking_data_copy["id"] = booking_id
-        # Required fields
-        required_fields = ["selected_slot", "discussion_summary"]
-        for field in required_fields:
-            if field not in booking_data_copy:
-                raise ValueError(f"Missing required booking field: {field}")
-        # topic_tags: auto-generate if not present
-        if "topic_tags" not in booking_data_copy:
-            summary_text = booking_data_copy.get("discussion_summary", "")
-            inferred_tags = self._infer_topic_tags_from_text(summary_text)
-            booking_data_copy["topic_tags"] = list(set([t.lower() for t in inferred_tags]))
-            booking_data_copy["topic_tags_raw"] = inferred_tags
-        else:
-            # Always store normalized and raw
-            raw_tags = booking_data_copy["topic_tags"]
-            booking_data_copy["topic_tags_raw"] = raw_tags
-            booking_data_copy["topic_tags"] = list(set([t.lower() for t in raw_tags]))
-        # payment_status
-        if "payment_status" not in booking_data_copy:
-            booking_data_copy["payment_status"] = "pending"
-        # status
-        if "status" not in booking_data_copy:
-            booking_data_copy["status"] = "pending"
-        # user_id
-        booking_data_copy["user_id"] = user_id
-        # created_at/updated_at
-        now = SERVER_TIMESTAMP
-        if "created_at" not in booking_data_copy:
-            booking_data_copy["created_at"] = now
-        booking_data_copy["updated_at"] = now
-        # Only keep allowed fields
-        allowed_fields = {"id", "user_id", "status", "created_at", "updated_at", "selected_slot", "payment_status", "discussion_summary", "topic_tags", "topic_tags_raw", "agent_notes", "source"}
-        booking_data_copy = {k: v for k, v in booking_data_copy.items() if k in allowed_fields}
-        bookings_collection.document(booking_id).set(booking_data_copy, merge=True)
-        return booking_id
-
-    def update_booking(self, user_id: str, booking_id: str, updates: Dict[str, Any]) -> None:
+        sessions_collection = self.client.collection("users").document(user_id).collection("sessions")
+        session_data_copy = session_data.copy()
+        
+        session_id = session_data_copy.get("id") or session_data_copy.get("session_id")
+        if not session_id:
+            session_id = sessions_collection.document().id
+            session_data_copy["id"] = session_id
+        
+        # Add user_id reference
+        session_data_copy["user_id"] = user_id
+        
+        # Add timestamps
+        if "created_at" not in session_data_copy:
+            session_data_copy["created_at"] = SERVER_TIMESTAMP
+        session_data_copy["updated_at"] = SERVER_TIMESTAMP
+        
+        # Store the session data
+        sessions_collection.document(session_id).set(session_data_copy, merge=True)
+        return session_id
+    
+    def get_session(self, user_id: str, session_id: str) -> Optional[Dict[str, Any]]:
         """
-        Update fields of a booking under users/{user_id}/bookings/{booking_id}.
-        Allows updating any of the new booking fields.
+        Retrieve a session document.
         """
-        bookings_collection = self.client.collection("users").document(user_id).collection("bookings")
-        updates_copy = updates.copy()
-        updates_copy["updated_at"] = SERVER_TIMESTAMP
-        # In update_booking, always normalize topic_tags if present
-        if "topic_tags" in updates_copy:
-            raw_tags = updates_copy["topic_tags"]
-            updates_copy["topic_tags_raw"] = raw_tags
-            updates_copy["topic_tags"] = list(set([t.lower() for t in raw_tags]))
-        allowed_fields = {"status", "selected_slot", "payment_status", "discussion_summary", "topic_tags", "topic_tags_raw", "agent_notes", "source", "updated_at"}
-        updates_copy = {k: v for k, v in updates_copy.items() if k in allowed_fields}
-        bookings_collection.document(booking_id).update(updates_copy)
-
-    def get_booking(self, user_id: str, booking_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieve a booking document.
-        """
-        bookings_collection = self.client.collection("users").document(user_id).collection("bookings")
-        doc = bookings_collection.document(booking_id).get()
+        sessions_collection = self.client.collection("users").document(user_id).collection("sessions")
+        doc = sessions_collection.document(session_id).get()
         if doc.exists:
             data = doc.to_dict()
             data["id"] = doc.id
             return sanitize_sentinel(data)
         return None
-
-    def list_bookings(self, user_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """
-        List bookings for a user, optionally filtered.
-        """
-        bookings_collection = self.client.collection("users").document(user_id).collection("bookings")
-        query = bookings_collection
-        if filters:
-            if "status" in filters:
-                query = query.where("status", "==", filters["status"])
-            if "start_time" in filters:
-                query = query.where("start_time", ">=", filters["start_time"])
-            if "end_time" in filters:
-                query = query.where("end_time", "<=", filters["end_time"])
-            limit = filters.get("limit", 20)
-        else:
-            limit = 20
-        query = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
-        results = []
-        for doc in query.stream():
-            data = doc.to_dict()
-            data["id"] = doc.id
-            results.append(sanitize_sentinel(data))
-        return results
-
-    def save_inquiry(self, inquiry_data: Dict[str, Any]) -> str:
-        """
-        Create or update an inquiry with the provided data in the 'inquiries' collection.
-        Args:
-            inquiry_data: Dictionary containing inquiry information
-        Returns:
-            inquiry_id: The ID of the created/updated inquiry
-        """
-        inquiries_collection = self.client.collection("inquiries")
-        inquiry_data_copy = inquiry_data.copy()
-        inquiry_id = inquiry_data_copy.get("id")
-        if not inquiry_id:
-            inquiry_id = inquiries_collection.document().id
-            inquiry_data_copy["id"] = inquiry_id
-        if "created_at" not in inquiry_data_copy:
-            inquiry_data_copy["created_at"] = SERVER_TIMESTAMP
-        inquiry_data_copy["updated_at"] = SERVER_TIMESTAMP
-        inquiries_collection.document(inquiry_id).set(inquiry_data_copy, merge=True)
-        return inquiry_id

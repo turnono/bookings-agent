@@ -10,11 +10,11 @@ export
 
 firestore-emulator:
 	@echo "[Firestore Emulator] Starting Firestore emulator. Run this in its own terminal window!"
-	FIRESTORE_EMULATOR_HOST=localhost:8086 firebase emulators:start --only firestore,auth --project ${GOOGLE_CLOUD_PROJECT}
+	FIRESTORE_EMULATOR_HOST=localhost:8087 firebase emulators:start --only firestore,auth --project ${GOOGLE_CLOUD_PROJECT}
 
 dev:
 	@echo "[Dev Server] Starting ADK API server. Run this in a separate terminal after the emulator is running!"
-	FIRESTORE_EMULATOR_HOST=localhost:8086 adk api_server --allow_origins="http://localhost:4200"
+	FIRESTORE_EMULATOR_HOST=localhost:8087 adk api_server --allow_origins="http://localhost:4200"
 
 frontend-do:
 	cd frontend && npm start
@@ -45,9 +45,6 @@ GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION},\
 GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI},\
 GOOGLE_API_KEY=${GOOGLE_API_KEY},\
 BOOKING_CALENDAR_ID=${BOOKING_CALENDAR_ID},\
-PAYSTACK_LIVE_SECRET_KEY=${PAYSTACK_LIVE_SECRET_KEY},\
-PAYSTACK_SANDBOX_SECRET_KEY=${PAYSTACK_SANDBOX_SECRET_KEY},\
-PAYSTACK_CALLBACK_URL=${PAYSTACK_CALLBACK_URL},\
 ENV=${ENV},\
 BOOKING_TIMEZONE=${BOOKING_TIMEZONE},\
 DEPLOYED_CLOUD_SERVICE_URL=${DEPLOYED_CLOUD_SERVICE_URL}"

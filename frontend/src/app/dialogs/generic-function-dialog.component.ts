@@ -4,7 +4,6 @@ import { QualifierDialogComponent } from './qualifier-dialog.component';
 import { ServiceSelectionDialogComponent } from './service-selection-dialog.component';
 import { DatePickerDialogComponent } from './date-picker-dialog.component';
 import { SlotPickerDialogComponent } from './slot-picker-dialog.component';
-import { PaymentConfirmationDialogComponent } from './payment-confirmation-dialog.component';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -16,7 +15,6 @@ import { CommonModule } from '@angular/common';
     ServiceSelectionDialogComponent,
     DatePickerDialogComponent,
     SlotPickerDialogComponent,
-    PaymentConfirmationDialogComponent,
   ],
   templateUrl: './generic-function-dialog.component.html',
   styleUrls: ['./generic-function-dialog.component.scss'],

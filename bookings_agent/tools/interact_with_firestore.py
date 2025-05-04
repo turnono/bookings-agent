@@ -160,52 +160,59 @@ def interact_with_firestore(
             memories = service.list_memories(args_copy.get("filters"))
             response["success"] = True
             response["data"] = memories  # Already sanitized by the service
+  
+  
+        # Session operations
+        elif operation == "save_session":
+            # Get user_id from args or context
+            user_id = args_copy.get("user_id") or user_id
+            if not user_id:
+                raise ValueError("user_id is required for save_session")
             
-        # Inquiry operations
-        elif operation == "save_inquiry":
+            # Get session_id from args or context
+            session_id = args_copy.get("session_id") or session_id or args_copy.get("id")
+            if session_id:
+                args_copy["id"] = session_id
+                
+            # Add timestamps if not present
             if "created_at" not in args_copy:
                 args_copy["created_at"] = datetime.datetime.now().isoformat()
-            inquiry_id = service.save_inquiry(args_copy)
+                
+            # Save the session data
+            session_id = service.save_session(user_id, args_copy)
             response["success"] = True
-            response["data"] = {"inquiry_id": inquiry_id}
+            response["data"] = {"session_id": session_id}
             
-        # Booking operations
-        elif operation == "create_booking":
-            # user_id required
+            # Store the session ID in the tool context for future reference
+            if tool_context and hasattr(tool_context, "state"):
+                tool_context.state["session_id"] = session_id
+                
+        elif operation == "get_session":
+            # Get user_id from args or context
             user_id = args_copy.get("user_id") or user_id
-            if not user_id:
-                raise ValueError("user_id is required for create_booking")
-            booking_id = service.create_booking(user_id, args_copy)
+            # Get session_id from args or context
+            session_id = args_copy.get("session_id") or session_id
+            
+            if not user_id or not session_id:
+                raise ValueError("user_id and session_id are required for get_session")
+                
+            session = service.get_session(user_id, session_id)
             response["success"] = True
-            response["data"] = {"booking_id": booking_id}
-
-        elif operation == "update_booking":
+            response["data"] = session
+            
+        elif operation == "update_session":
+            # Get user_id from args or context
             user_id = args_copy.get("user_id") or user_id
-            booking_id = args_copy.get("booking_id")
+            # Get session_id from args or context
+            session_id = args_copy.get("session_id") or session_id
             updates = args_copy.get("updates", {})
-            if not user_id or not booking_id:
-                raise ValueError("user_id and booking_id are required for update_booking")
-            service.update_booking(user_id, booking_id, updates)
-            response["success"] = True
-
-        elif operation == "get_booking":
-            user_id = args_copy.get("user_id") or user_id
-            booking_id = args_copy.get("booking_id")
-            if not user_id or not booking_id:
-                raise ValueError("user_id and booking_id are required for get_booking")
-            booking = service.get_booking(user_id, booking_id)
-            response["success"] = True
-            response["data"] = booking
-
-        elif operation == "list_bookings":
-            user_id = args_copy.get("user_id") or user_id
-            filters = args_copy.get("filters")
-            if not user_id:
-                raise ValueError("user_id is required for list_bookings")
-            bookings = service.list_bookings(user_id, filters)
-            response["success"] = True
-            response["data"] = bookings
             
+            if not user_id or not session_id:
+                raise ValueError("user_id and session_id are required for update_session")
+                
+            service.update_session(user_id, session_id, updates)
+            response["success"] = True
+
         else:
             # Safety fallback for unsupported operations
             response["error"] = {

@@ -102,11 +102,6 @@
         </mat-chip-listbox>
       </ng-container>
 
-      <!-- Payment -->
-      <ng-container *ngIf="activeFunctionCall && activeFunctionCall.name === 'create_paystack_checkout' && paymentUrl">
-        <button mat-raised-button color="accent" (click)="goToPayment()">Pay Now</button>
-      </ng-container>
-
       <!-- Default text input -->
       <ng-container *ngIf="!activeFunctionCall">
         <mat-form-field appearance="outline" class="w-100 chat-input-field">

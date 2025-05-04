@@ -3,7 +3,6 @@
   <app-service-selection-dialog *ngSwitchCase="'selectService'" [args]="arguments"></app-service-selection-dialog>
   <app-date-picker-dialog *ngSwitchCase="'getAvailableDates'" [args]="arguments"></app-date-picker-dialog>
   <app-slot-picker-dialog *ngSwitchCase="'getAvailableSlots'" [args]="arguments"></app-slot-picker-dialog>
-  <app-payment-confirmation-dialog *ngSwitchCase="'confirmPayment'"
-    [args]="arguments"></app-payment-confirmation-dialog>
+
   <div *ngSwitchDefault></div>
 </div>

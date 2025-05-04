@@ -29,8 +29,10 @@ import { QualifierDialogComponent } from '../dialogs/qualifier-dialog.component'
 import { ServiceSelectionDialogComponent } from '../dialogs/service-selection-dialog.component';
 import { DatePickerDialogComponent } from '../dialogs/date-picker-dialog.component';
 import { SlotPickerDialogComponent } from '../dialogs/slot-picker-dialog.component';
-import { PaymentConfirmationDialogComponent } from '../dialogs/payment-confirmation-dialog.component';
+import { EmailDialogComponent } from '../dialogs/email-dialog.component';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { switchMap } from 'rxjs/operators';
+import { Auth } from '@angular/fire/auth';
 
 import {
   trigger,
@@ -60,8 +62,10 @@ const FUNCTION_FRIENDLY_MESSAGES: Record<string, string> = {
   availability_agent: 'Checking available slots…',
   'availability_agent.getSlots': 'Checking available slots…',
   select_time_slot: 'Preparing available time slots…',
-  create_paystack_checkout: 'Preparing payment…',
   screening_question: 'Just a quick question…',
+  validate_email: 'Validating your email…',
+  create_booking: 'Creating your booking…',
+  send_invite: 'Sending your calendar invitation…',
   // Add more mappings as needed
 };
 
@@ -70,9 +74,9 @@ const FUNCTION_DIALOG_MAP: Record<string, any> = {
   selectService: ServiceSelectionDialogComponent,
   getAvailableDates: DatePickerDialogComponent,
   getAvailableSlots: SlotPickerDialogComponent,
-  confirmPayment: PaymentConfirmationDialogComponent,
   transfer_to_agent: QualifierDialogComponent,
   get_available_time_slots: SlotPickerDialogComponent,
+  validate_email: EmailDialogComponent,
 };
 
 @Component({
@@ -122,7 +126,13 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   availableDates: string[] = [];
   availableSlots: string[] = [];
   selectedSlot: string = '';
-  paymentUrl: string = '';
+  userEmail: string = '';
+  bookingTopic: string = '';
+  bookingId: string = '';
+  // Track session creation status
+  private sessionCreated: boolean = false;
+  // Flag to prevent multiple booking submissions
+  private bookingInProgress: boolean = false;
 
   @ViewChild('messageList') messageListRef!: ElementRef;
   @ViewChild('chatInput') chatInputRef!: ElementRef;
@@ -143,13 +153,28 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private agentService: AgentService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private auth: Auth
   ) {}
 
   ngOnInit() {
+    // Monitor auth state changes to keep firebaseUserId in sync
+    this.auth.onAuthStateChanged((user) => {
+      if (user) {
+        console.log(
+          `Auth state changed - current user: ${user.uid}, isAnonymous: ${user.isAnonymous}`
+        );
+        this.firebaseUserId = user.uid;
+      } else {
+        console.log('Auth state changed - user signed out');
+        this.firebaseUserId = null;
+      }
+    });
+
     this.agentService.getUserId$().subscribe({
       next: (uid) => {
         this.firebaseUserId = uid;
+        console.log(`Initial Firebase UID set to: ${uid}`);
         this.newChat(); // Only start chat after UID is ready
       },
       error: (err) => {
@@ -198,15 +223,12 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
   handleError(message: string) {
     this.errorMessage = message;
-    this.snackBar
-      .open(message + ' (tap to retry)', 'Retry', { duration: 5000 })
-      .onAction()
-      .subscribe(() => {
-        // Retry logic placeholder
-        // this.retryLastAction?.();
-      });
-    this.loading = false;
-    this.focusInput();
+    this.snackBar.open(message, 'Dismiss', {
+      duration: 5000,
+      horizontalPosition: 'center',
+      verticalPosition: 'bottom',
+      panelClass: ['error-snackbar'],
+    });
   }
 
   dismissError() {
@@ -214,51 +236,124 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   sendMessage() {
-    if (!this.firebaseUserId) {
-      this.handleError('Firebase UID not ready yet.');
-      return;
-    }
-    const input = this.userInput.trim();
-    if (!input) return;
+    if (!this.userInput.trim()) return;
+
+    // Save the input before clearing it
+    const input = this.userInput;
+    this.userInput = '';
+
     this.messages.push({
       role: 'user',
       text: input,
       timestamp: Timestamp.now(),
     });
-    this.userInput = '';
+
     this.loading = true;
     this.scrollToBottom();
-    this.agentService
-      .sendMessage(
-        input,
-        this.agentService.appName,
-        this.firebaseUserId!,
-        this.agentService.sessionId
-      )
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (events) => {
-          this.handleAgentEvents(events);
-          this.focusInput();
-        },
-        error: (err: any) => {
-          console.error('AgentService error:', err);
-          let errorMsg = 'Error contacting agent.';
-          if (err?.error?.message) {
-            errorMsg += ` Details: ${err.error.message}`;
-          } else if (err?.message) {
-            errorMsg += ` Details: ${err.message}`;
-          } else if (typeof err === 'string') {
-            errorMsg += ` Details: ${err}`;
-          }
-          this.handleError(errorMsg);
-          this.scrollToBottom();
-        },
-      });
+
+    // Extract potential topic for booking
+    if (!this.bookingTopic && input.length > 10) {
+      this.bookingTopic = input;
+    }
+
+    // Only ensure session if not already created
+    if (this.sessionCreated) {
+      // Session already exists, just send the message
+      this.agentService
+        .sendMessage(
+          input,
+          this.agentService.appName,
+          this.firebaseUserId!,
+          this.agentService.sessionId
+        )
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (events) => {
+            this.handleAgentEvents(events);
+            this.loading = false;
+            this.focusInput();
+          },
+          error: (err) => {
+            console.error('AgentService error:', err);
+            let errorMsg = 'Error contacting agent.';
+            if (err?.error?.message) {
+              errorMsg += ` Details: ${err.error.message}`;
+            } else if (err?.message) {
+              errorMsg += ` Details: ${err.message}`;
+            } else if (typeof err === 'string') {
+              errorMsg += ` Details: ${err}`;
+            }
+            this.handleError(errorMsg);
+            this.loading = false;
+            this.scrollToBottom();
+          },
+        });
+    } else {
+      // First ensure a session exists
+      this.agentService
+        .ensureSessionExists(
+          this.agentService.appName,
+          this.firebaseUserId!,
+          this.agentService.sessionId
+        )
+        .pipe(
+          // Then send the message
+          switchMap(() => {
+            // Mark session as created
+            this.sessionCreated = true;
+            return this.agentService.sendMessage(
+              input,
+              this.agentService.appName,
+              this.firebaseUserId!,
+              this.agentService.sessionId
+            );
+          }),
+          takeUntil(this.destroy$)
+        )
+        .subscribe({
+          next: (events) => {
+            this.handleAgentEvents(events);
+            this.loading = false;
+            this.focusInput();
+          },
+          error: (err) => {
+            console.error('AgentService error:', err);
+            let errorMsg = 'Error contacting agent.';
+            if (err?.error?.message) {
+              errorMsg += ` Details: ${err.error.message}`;
+            } else if (err?.message) {
+              errorMsg += ` Details: ${err.message}`;
+            } else if (typeof err === 'string') {
+              errorMsg += ` Details: ${err}`;
+            }
+            this.handleError(errorMsg);
+            this.loading = false;
+            this.scrollToBottom();
+          },
+        });
+    }
   }
 
   handleAgentEvents(events: any) {
     let messageAdded = false;
+
+    // Check if we received an API rate limit error
+    const hasRateLimitError = events.some((event: any) =>
+      event.content?.parts?.some(
+        (part: any) =>
+          part.text?.includes('rate limit') ||
+          part.text?.includes('quota exceeded')
+      )
+    );
+
+    if (hasRateLimitError) {
+      this.handleError(
+        'The service is experiencing high demand. Please try again in a moment.'
+      );
+      this.loading = false;
+      this.bookingInProgress = false; // Reset booking flag if rate limited
+      return;
+    }
 
     for (const event of events) {
       if (event.content && event.content.parts) {
@@ -337,95 +432,14 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.availableDates = [];
     this.availableSlots = [];
     this.selectedSlot = '';
-    this.paymentUrl = '';
 
-    // Open the mapped dialog for this function call, only if mapped
-    const dialogComponent = FUNCTION_DIALOG_MAP[func.name];
-    if (dialogComponent) {
-      const dialogRef = this.dialog.open(dialogComponent, {
-        data: {
-          functionName: func.name,
-          arguments: func.arguments,
-        },
-      });
-      dialogRef.afterClosed().subscribe((result) => {
-        this.scrollToBottom();
-        if (result !== undefined && result !== null && result !== '') {
-          this.messages.push({
-            role: 'user',
-            text: result,
-            timestamp: Timestamp.now(),
-          });
-          this.scrollToBottom();
-          this.loading = true;
-          this.agentService
-            .sendMessage(
-              result,
-              this.agentService.appName,
-              this.firebaseUserId!,
-              this.agentService.sessionId
-            )
-            .subscribe({
-              next: (events) => {
-                this.handleAgentEvents(events);
-                this.scrollToBottom();
-                this.focusInput();
-              },
-              error: (err: any) => {
-                console.error('AgentService error:', err);
-                let errorMsg = 'Error contacting agent.';
-                if (err?.error?.message) {
-                  errorMsg += ` Details: ${err.error.message}`;
-                } else if (err?.message) {
-                  errorMsg += ` Details: ${err.message}`;
-                } else if (typeof err === 'string') {
-                  errorMsg += ` Details: ${err}`;
-                }
-                this.handleError(errorMsg);
-                this.scrollToBottom();
-              },
-            });
-        } else {
-          this.messages.push({
-            role: 'user',
-            text: 'cancel',
-            timestamp: Timestamp.now(),
-          });
-          this.scrollToBottom();
-          this.loading = true;
-          this.agentService
-            .sendMessage(
-              'cancel',
-              this.agentService.appName,
-              this.firebaseUserId!,
-              this.agentService.sessionId
-            )
-            .subscribe({
-              next: (events) => {
-                this.handleAgentEvents(events);
-                this.scrollToBottom();
-                this.focusInput();
-              },
-              error: (err: any) => {
-                console.error('AgentService error:', err);
-                let errorMsg = 'Error contacting agent.';
-                if (err?.error?.message) {
-                  errorMsg += ` Details: ${err.error.message}`;
-                } else if (err?.message) {
-                  errorMsg += ` Details: ${err.message}`;
-                } else if (typeof err === 'string') {
-                  errorMsg += ` Details: ${err}`;
-                }
-                this.handleError(errorMsg);
-                this.scrollToBottom();
-              },
-            });
-        }
-      });
+    // Handle validate_email function call
+    if (func.name === 'validate_email') {
+      // Directly open the registration dialog when email validation is requested
+      // Skip the email entry step as it will be handled in the registration dialog
     }
-
     // Screening question
-    if (func.name === 'screening_question') {
+    else if (func.name === 'screening_question') {
       // args: { question: string }
       // Show input for answer
     } else if (func.name === 'availability_agent.getSlots') {
@@ -434,10 +448,75 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (func.name === 'select_time_slot') {
       // Extract slots from arguments
       this.availableSlots = func.arguments?.slots || [];
-    } else if (func.name === 'create_paystack_checkout') {
-      // Extract url from arguments
-      this.paymentUrl = func.arguments?.url || '';
+    } else if (func.name === 'create_booking') {
+      // Before creating booking, check if user is anonymous
+      if (this.auth.currentUser?.isAnonymous) {
+        // Prompt for registration before proceeding
+      } else {
+        // User already registered, proceed with booking
+        this.handleBookingCreation(func);
+      }
     }
+  }
+
+  // Helper method to reset booking state
+  private resetBookingState() {
+    this.bookingInProgress = false;
+    this.activeFunctionCall = null;
+    this.selectedSlot = '';
+    this.bookingId = '';
+  }
+
+  // Helper method to handle booking creation
+  private handleBookingCreation(func: FunctionCall) {
+    // Prevent multiple submissions
+    if (this.bookingInProgress) {
+      console.log('Booking already in progress, ignoring duplicate request');
+      return;
+    }
+
+    // Set flag to prevent duplicate submissions
+    this.bookingInProgress = true;
+
+    // Capture booking details for later reference
+    if (func.arguments?.slot) {
+      this.selectedSlot = func.arguments.slot;
+    }
+    if (func.arguments?.topic) {
+      this.bookingTopic = func.arguments.topic;
+    }
+    if (func.arguments?.email) {
+      this.userEmail = func.arguments.email;
+    }
+
+    // Continue with booking flow
+    this.messages.push({
+      role: 'user',
+      text: `I confirm booking for slot: ${this.selectedSlot}`,
+      timestamp: Timestamp.now(),
+    });
+
+    this.loading = true;
+    this.agentService
+      .sendMessage(
+        `I confirm booking for slot: ${this.selectedSlot}`,
+        this.agentService.appName,
+        this.firebaseUserId!,
+        this.agentService.sessionId
+      )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (events) => {
+          this.handleAgentEvents(events);
+          // Reset the flag when booking is complete
+          this.bookingInProgress = false;
+        },
+        error: (err) => {
+          this.handleError('Failed to create booking. Please try again.');
+          // Reset the booking state on error
+          this.resetBookingState();
+        },
+      });
   }
 
   handleFunctionResponse(funcResp: any) {
@@ -446,6 +525,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     console.log('Function response received:', funcResp);
+
     // Use friendly message if available
     const friendlyText = FUNCTION_FRIENDLY_MESSAGES[funcResp.name] || 'Done.';
     this.messages.push({
@@ -454,9 +534,57 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       functionResponse: funcResp,
       timestamp: Timestamp.now(),
     });
+
+    // Handle function-specific responses
     if (funcResp.name === 'availability_agent.getSlots') {
       if (funcResp.response?.slots) {
         this.availableSlots = funcResp.response.slots;
+      }
+    } else if (funcResp.name === 'create_booking') {
+      // Store booking ID if available
+      if (funcResp.response?.booking_id) {
+        this.bookingId = funcResp.response.booking_id;
+      }
+
+      // Show snackbar for booking success
+      if (funcResp.response?.success) {
+        this.snackBar.open(
+          funcResp.response.status === 'created'
+            ? 'Booking created successfully!'
+            : 'This slot is already booked.',
+          'Dismiss',
+          {
+            duration: 5000,
+            horizontalPosition: 'center',
+            verticalPosition: 'bottom',
+            panelClass: ['success-snackbar'],
+          }
+        );
+      }
+    } else if (funcResp.name === 'send_invite') {
+      // Show snackbar based on invitation status
+      if (funcResp.response?.status === 'confirmed') {
+        this.snackBar.open(
+          'Calendar invitation sent successfully!',
+          'Dismiss',
+          {
+            duration: 5000,
+            horizontalPosition: 'center',
+            verticalPosition: 'bottom',
+            panelClass: ['success-snackbar'],
+          }
+        );
+      } else if (funcResp.response?.status === 'pending_invite_error') {
+        this.snackBar.open(
+          "Booking confirmed, but there was an issue sending the calendar invitation. We'll fix this manually.",
+          'Dismiss',
+          {
+            duration: 7000,
+            horizontalPosition: 'center',
+            verticalPosition: 'bottom',
+            panelClass: ['warning-snackbar'],
+          }
+        );
       }
     }
   }
@@ -470,33 +598,81 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.loading = true;
     this.scrollToBottom();
-    this.agentService
-      .sendMessage(
-        this.screeningAnswer,
-        this.agentService.appName,
-        this.firebaseUserId!,
-        this.agentService.sessionId
-      )
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (events) => {
-          this.handleAgentEvents(events);
-          this.focusInput();
-        },
-        error: (err: any) => {
-          console.error('AgentService error:', err);
-          let errorMsg = 'Error contacting agent.';
-          if (err?.error?.message) {
-            errorMsg += ` Details: ${err.error.message}`;
-          } else if (err?.message) {
-            errorMsg += ` Details: ${err.message}`;
-          } else if (typeof err === 'string') {
-            errorMsg += ` Details: ${err}`;
-          }
-          this.handleError(errorMsg);
-          this.scrollToBottom();
-        },
-      });
+
+    // Only ensure session if not already created
+    if (this.sessionCreated) {
+      this.agentService
+        .sendMessage(
+          this.screeningAnswer,
+          this.agentService.appName,
+          this.firebaseUserId!,
+          this.agentService.sessionId
+        )
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (events) => {
+            this.handleAgentEvents(events);
+            this.loading = false;
+            this.focusInput();
+          },
+          error: (err) => {
+            console.error('AgentService error:', err);
+            let errorMsg = 'Error contacting agent.';
+            if (err?.error?.message) {
+              errorMsg += ` Details: ${err.error.message}`;
+            } else if (err?.message) {
+              errorMsg += ` Details: ${err.message}`;
+            } else if (typeof err === 'string') {
+              errorMsg += ` Details: ${err}`;
+            }
+            this.handleError(errorMsg);
+            this.loading = false;
+            this.scrollToBottom();
+          },
+        });
+    } else {
+      // First ensure a session exists
+      this.agentService
+        .ensureSessionExists(
+          this.agentService.appName,
+          this.firebaseUserId!,
+          this.agentService.sessionId
+        )
+        .pipe(
+          switchMap(() => {
+            // Mark session as created
+            this.sessionCreated = true;
+            return this.agentService.sendMessage(
+              this.screeningAnswer,
+              this.agentService.appName,
+              this.firebaseUserId!,
+              this.agentService.sessionId
+            );
+          }),
+          takeUntil(this.destroy$)
+        )
+        .subscribe({
+          next: (events) => {
+            this.handleAgentEvents(events);
+            this.loading = false;
+            this.focusInput();
+          },
+          error: (err) => {
+            console.error('AgentService error:', err);
+            let errorMsg = 'Error contacting agent.';
+            if (err?.error?.message) {
+              errorMsg += ` Details: ${err.error.message}`;
+            } else if (err?.message) {
+              errorMsg += ` Details: ${err.message}`;
+            } else if (typeof err === 'string') {
+              errorMsg += ` Details: ${err}`;
+            }
+            this.handleError(errorMsg);
+            this.loading = false;
+            this.scrollToBottom();
+          },
+        });
+    }
     this.activeFunctionCall = null;
     this.screeningAnswer = '';
   }
@@ -511,33 +687,81 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.loading = true;
     this.scrollToBottom();
-    this.agentService
-      .sendMessage(
-        dateStr,
-        this.agentService.appName,
-        this.firebaseUserId!,
-        this.agentService.sessionId
-      )
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (events) => {
-          this.handleAgentEvents(events);
-          this.focusInput();
-        },
-        error: (err: any) => {
-          console.error('AgentService error:', err);
-          let errorMsg = 'Error contacting agent.';
-          if (err?.error?.message) {
-            errorMsg += ` Details: ${err.error.message}`;
-          } else if (err?.message) {
-            errorMsg += ` Details: ${err.message}`;
-          } else if (typeof err === 'string') {
-            errorMsg += ` Details: ${err}`;
-          }
-          this.handleError(errorMsg);
-          this.scrollToBottom();
-        },
-      });
+
+    // Only ensure session if not already created
+    if (this.sessionCreated) {
+      this.agentService
+        .sendMessage(
+          dateStr,
+          this.agentService.appName,
+          this.firebaseUserId!,
+          this.agentService.sessionId
+        )
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (events) => {
+            this.handleAgentEvents(events);
+            this.loading = false;
+            this.focusInput();
+          },
+          error: (err) => {
+            console.error('AgentService error:', err);
+            let errorMsg = 'Error contacting agent.';
+            if (err?.error?.message) {
+              errorMsg += ` Details: ${err.error.message}`;
+            } else if (err?.message) {
+              errorMsg += ` Details: ${err.message}`;
+            } else if (typeof err === 'string') {
+              errorMsg += ` Details: ${err}`;
+            }
+            this.handleError(errorMsg);
+            this.loading = false;
+            this.scrollToBottom();
+          },
+        });
+    } else {
+      // First ensure a session exists
+      this.agentService
+        .ensureSessionExists(
+          this.agentService.appName,
+          this.firebaseUserId!,
+          this.agentService.sessionId
+        )
+        .pipe(
+          switchMap(() => {
+            // Mark session as created
+            this.sessionCreated = true;
+            return this.agentService.sendMessage(
+              dateStr,
+              this.agentService.appName,
+              this.firebaseUserId!,
+              this.agentService.sessionId
+            );
+          }),
+          takeUntil(this.destroy$)
+        )
+        .subscribe({
+          next: (events) => {
+            this.handleAgentEvents(events);
+            this.loading = false;
+            this.focusInput();
+          },
+          error: (err) => {
+            console.error('AgentService error:', err);
+            let errorMsg = 'Error contacting agent.';
+            if (err?.error?.message) {
+              errorMsg += ` Details: ${err.error.message}`;
+            } else if (err?.message) {
+              errorMsg += ` Details: ${err.message}`;
+            } else if (typeof err === 'string') {
+              errorMsg += ` Details: ${err}`;
+            }
+            this.handleError(errorMsg);
+            this.loading = false;
+            this.scrollToBottom();
+          },
+        });
+    }
     this.activeFunctionCall = null;
     this.selectedDate = null;
   }
@@ -551,41 +775,83 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.loading = true;
     this.scrollToBottom();
-    this.agentService
-      .sendMessage(
-        slot,
-        this.agentService.appName,
-        this.firebaseUserId!,
-        this.agentService.sessionId
-      )
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (events) => {
-          this.handleAgentEvents(events);
-          this.focusInput();
-        },
-        error: (err: any) => {
-          console.error('AgentService error:', err);
-          let errorMsg = 'Error contacting agent.';
-          if (err?.error?.message) {
-            errorMsg += ` Details: ${err.error.message}`;
-          } else if (err?.message) {
-            errorMsg += ` Details: ${err.message}`;
-          } else if (typeof err === 'string') {
-            errorMsg += ` Details: ${err}`;
-          }
-          this.handleError(errorMsg);
-          this.scrollToBottom();
-        },
-      });
+
+    // Only ensure session if not already created
+    if (this.sessionCreated) {
+      this.agentService
+        .sendMessage(
+          slot,
+          this.agentService.appName,
+          this.firebaseUserId!,
+          this.agentService.sessionId
+        )
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (events) => {
+            this.handleAgentEvents(events);
+            this.loading = false;
+            this.focusInput();
+          },
+          error: (err) => {
+            console.error('AgentService error:', err);
+            let errorMsg = 'Error contacting agent.';
+            if (err?.error?.message) {
+              errorMsg += ` Details: ${err.error.message}`;
+            } else if (err?.message) {
+              errorMsg += ` Details: ${err.message}`;
+            } else if (typeof err === 'string') {
+              errorMsg += ` Details: ${err}`;
+            }
+            this.handleError(errorMsg);
+            this.loading = false;
+            this.scrollToBottom();
+          },
+        });
+    } else {
+      // First ensure a session exists
+      this.agentService
+        .ensureSessionExists(
+          this.agentService.appName,
+          this.firebaseUserId!,
+          this.agentService.sessionId
+        )
+        .pipe(
+          switchMap(() => {
+            // Mark session as created
+            this.sessionCreated = true;
+            return this.agentService.sendMessage(
+              slot,
+              this.agentService.appName,
+              this.firebaseUserId!,
+              this.agentService.sessionId
+            );
+          }),
+          takeUntil(this.destroy$)
+        )
+        .subscribe({
+          next: (events) => {
+            this.handleAgentEvents(events);
+            this.loading = false;
+            this.focusInput();
+          },
+          error: (err) => {
+            console.error('AgentService error:', err);
+            let errorMsg = 'Error contacting agent.';
+            if (err?.error?.message) {
+              errorMsg += ` Details: ${err.error.message}`;
+            } else if (err?.message) {
+              errorMsg += ` Details: ${err.message}`;
+            } else if (typeof err === 'string') {
+              errorMsg += ` Details: ${err}`;
+            }
+            this.handleError(errorMsg);
+            this.loading = false;
+            this.scrollToBottom();
+          },
+        });
+    }
     this.activeFunctionCall = null;
     this.selectedSlot = '';
-  }
-
-  goToPayment() {
-    if (this.paymentUrl) {
-      window.location.href = this.paymentUrl;
-    }
   }
 
   newChat() {
@@ -593,55 +859,69 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       this.handleError('Firebase UID not ready yet.');
       return;
     }
+
+    // Create a new session ID
     this.agentService.startNewSession();
-    this.messages = [
-      {
-        role: 'agent',
-        text: 'Hello! I’m SchedulerAgent, the booking assistant for Abdullah Abrahams. How can I help you today?',
-        timestamp: Timestamp.now(),
-      },
-    ];
-    this.userInput = '';
-    this.loading = false;
+    // Reset session created flag
+    this.sessionCreated = false;
+
+    // Ensure the session exists on the backend before continuing
     this.agentService
-      .createOrUpdateSession(
+      .ensureSessionExists(
         this.agentService.appName,
-        this.firebaseUserId!,
-        this.agentService.sessionId,
-        {}
+        this.firebaseUserId,
+        this.agentService.sessionId
       )
-      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
           console.log('Session created successfully');
-          // Ensure greeting is visible by scrolling after a short delay
-          setTimeout(() => {
-            this.scrollToBottom();
-            this.focusInput();
-          }, 100);
+          // Mark session as created
+          this.sessionCreated = true;
+          // Initialize chat UI after session is created
+          this.initializeChatUI();
         },
-        error: (err: any) => {
-          console.error('AgentService error:', err);
-          let errorMsg = 'Error creating session.';
-          if (err?.error?.message) {
-            errorMsg += ` Details: ${err.error.message}`;
-          } else if (err?.message) {
-            errorMsg += ` Details: ${err.message}`;
-          } else if (typeof err === 'string') {
-            errorMsg += ` Details: ${err}`;
-          }
-          this.handleError(errorMsg);
+        error: (err) => {
+          console.error('Failed to create session:', err);
+          this.handleError(
+            'Failed to initialize chat session. Please try again.'
+          );
+
+          // Still show the UI but warn the user
+          this.initializeChatUI();
         },
       });
   }
 
+  // Separate method to initialize the chat UI
+  private initializeChatUI() {
+    this.messages = [
+      {
+        role: 'agent',
+        text: "Hi there! I'm your booking assistant. How can I help you today?",
+        timestamp: Timestamp.now(),
+      },
+    ];
+    this.activeFunctionCall = null;
+    this.detectedFunctionCalls = [];
+    this.screeningAnswer = '';
+    this.selectedDate = null;
+    this.availableDates = [];
+    this.availableSlots = [];
+    this.selectedSlot = '';
+    this.userEmail = '';
+    this.bookingTopic = '';
+    this.bookingId = '';
+    this.bookingInProgress = false;
+    // Don't reset sessionCreated here, as it should persist for the duration of the chat
+    this.focusInput();
+  }
+
   ngOnDestroy() {
-    // Cleanup the observer
+    this.destroy$.next();
+    this.destroy$.complete();
     if (this.mutationObserver) {
       this.mutationObserver.disconnect();
       this.mutationObserver = null;
     }
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 }

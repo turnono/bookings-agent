@@ -7,10 +7,11 @@ from bookings_agent.models import DEFAULT_MODEL
 from bookings_agent.tools.google_calendar import create_event, get_available_time_slots
 from bookings_agent.sub_agents.booking_validator import validator_agent
 from bookings_agent.sub_agents.inquiry_collector import inquiry_collector_agent
-from bookings_agent.sub_agents.payment_agent import payment_agent
-from bookings_agent.sub_agents.payment_agent.agent import create_paystack_checkout
+from bookings_agent.sub_agents.info_agent import info_agent
 from google.adk.tools import FunctionTool
-from bookings_agent.booking_flow import handle_payment_confirmed
+from google.adk.tools.agent_tool import AgentTool
+from bookings_agent.sub_agents.intent_extractor import intent_extractor_agent
+from bookings_agent.tools.validate_email import validate_email
 
 
 # Conversation Management for Booking Agent:
@@ -27,12 +28,6 @@ AGENT_SUMMARY = (
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(BASEDIR, "../.env"))
 
-def payment_confirmation_flow(booking_id: str, user_id: str) -> str:
-    """
-    Agent tool: When payment_confirmed is detected, call this to create the event and notify the user.
-    """
-    return handle_payment_confirmed(booking_id, user_id)
-
 root_agent = LlmAgent(
     name="booking_guide",
     model=DEFAULT_MODEL,
@@ -40,16 +35,27 @@ root_agent = LlmAgent(
     instruction=(
         AGENT_SUMMARY + "\n"
         "Booking Flow: "
-        "1. The Validator Agent screens the user for topic and seriousness. "
-        "2. After validation, remind the user that sessions are paid consultations. "
-        "3. Ask the user for their preferred dates (not times), e.g., 'Which dates between [date] and [date] would suit you?' "
-        "4. Parse natural language date phrases (today, tomorrow, next week, this week, from today, from tomorrow) to concrete date ranges using the current year as default. "
-        "5. Assume sessions are 30 minutes unless the user specifies otherwise. Only ask about session length if unclear. "
-        "6. Fetch available slots for those dates and show them to the user for selection. Do not ask the user to guess times manually. "
-        "7. When the user selects a slot, hold it internally as 'pending' (do not create the calendar event yet). Log the user's topic and tags in Firestore with the booking. "
-        "8. Send the user to payment and instruct them to pay within 10 minutes to confirm. "
-        "9. If payment succeeds, create the Google Calendar event and send booking confirmation. "
-        "10. If payment fails or times out, release the held slot and inform the user politely. "
+        "1. After the user's first message, immediately analyze it using the intent_extractor_agent to determine intent."
+        "2. Based on the intent, transfer the user to the appropriate agent:"
+        "   - For 'booking' intent: Transfer to the validator_agent for screening."
+        "   - For 'info' intent: Transfer to the info_agent."
+        "   - For 'inquiry' intent: Transfer to the inquiry_collector_agent."
+        "   - For 'other' intent: Continue with the default booking flow."
+        "3. The Validator Agent screens the user for topic and seriousness. "
+        "4. After validation, proceed to scheduling the consultation. "
+        "5. Ask the user for their preferred dates (not times), e.g., 'Which dates between [date] and [date] would suit you?' "
+        "6. Parse natural language date phrases (today, tomorrow, next week, this week, from today, from tomorrow) to concrete date ranges using the current year as default. "
+        "7. Assume sessions are 30 minutes unless the user specifies otherwise. Only ask about session length if unclear. "
+        "8. Fetch available slots for those dates and show them to the user for selection. Do not ask the user to guess times manually. "
+        "9. After the user selects a slot, ask for their email address and validate it using the validate_email tool. "
+        "10. Create the calendar event directly using the create_event tool with:"
+        "    - summary: 'Consultation with Abdullah Abrahams'"
+        "    - start_time: the selected slot"
+        "    - end_time: 30 minutes after start_time"
+        "    - description: the topic"
+        "    - attendees: the user's email address"
+        "11. Once the calendar event is created, inform the user that their booking is confirmed and that they'll receive a calendar invitation."
+        "    - If the calendar event creation returns an 'attendees_warning', explain to the user that they will need to be added to the invitation manually."
         "\nConversation Management: "
         "- Encourage polite, quick progression toward booking. "
         "- Give subtle hints if the conversation goes off-track. "
@@ -60,22 +66,19 @@ root_agent = LlmAgent(
         "• handoff_to_consultation "
         "• handoff_to_opportunities "
         "• screening_result "
-        "• payment_confirmed "
-        "• payment_rejected "
         "• inquiry_saved "
         "Then immediately route to the next step based on whichever key is present. If none are present, continue the same agent's flow. "
-        "\nIf you see payment_confirmed, call the payment_confirmation_flow tool with the bookingId and userId."
     ),
     sub_agents=[
         validator_agent,
         inquiry_collector_agent,
-        payment_agent,
+        info_agent,
     ],
     tools=[
         FunctionTool(create_event),
         FunctionTool(get_available_time_slots),
-        FunctionTool(create_paystack_checkout),
-        FunctionTool(payment_confirmation_flow),
+        FunctionTool(validate_email),
+        AgentTool(intent_extractor_agent),
     ],
     output_key="booking_guide_output"
 )

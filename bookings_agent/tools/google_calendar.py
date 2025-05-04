@@ -58,6 +58,8 @@ def create_event(
         end_time (str): RFC3339 end time (e.g., '2025-04-28T11:00:00-07:00').
         description (str, optional): Event description.
         attendees (List[str], optional): List of attendee email addresses.
+                  Note: Adding attendees requires Domain-Wide Delegation for service accounts.
+                  If you encounter a 403 error, try without attendees.
     Returns:
         dict: Created event's summary and htmlLink.
     """
@@ -69,13 +71,47 @@ def create_event(
     }
     if description:
         event['description'] = description
+    
+    # First try to create the event with attendees if provided
+    event_with_attendees = event.copy()
     if attendees:
-        event['attendees'] = [{'email': email} for email in attendees]
-    created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
-    return {
-        'summary': created_event.get('summary'),
-        'htmlLink': created_event.get('htmlLink')
-    }
+        event_with_attendees['attendees'] = [{'email': email} for email in attendees]
+        
+    try:
+        # Try to create event with attendees first
+        if attendees:
+            created_event = service.events().insert(calendarId=calendar_id, body=event_with_attendees).execute()
+        else:
+            created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
+            
+        return {
+            'summary': created_event.get('summary'),
+            'htmlLink': created_event.get('htmlLink')
+        }
+    except Exception as e:
+        # If failed and has attendees, try again without attendees
+        if attendees and "Service accounts cannot invite attendees" in str(e):
+            print(f"Warning: Service account cannot add attendees without Domain-Wide Delegation. Creating event without attendees.")
+            # Create without attendees
+            created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
+            
+            # Add note about attendees in description
+            if description:
+                event['description'] = f"{description}\n\nCould not automatically add attendees. Please manually invite: {', '.join(attendees)}"
+            else:
+                event['description'] = f"Could not automatically add attendees. Please manually invite: {', '.join(attendees)}"
+                
+            # Update the event with the new description
+            service.events().update(calendarId=calendar_id, eventId=created_event['id'], body=event).execute()
+            
+            return {
+                'summary': created_event.get('summary'),
+                'htmlLink': created_event.get('htmlLink'),
+                'attendees_warning': "Service account cannot add attendees. You'll need to add them manually or enable Domain-Wide Delegation."
+            }
+        else:
+            # If it's a different error, re-raise
+            raise
 
 def ensure_rfc3339_z(dt: str) -> str:
     # If already ends with Z, return as is

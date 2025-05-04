@@ -2,10 +2,10 @@
   "emulators": {
     "firestore": {
       "host": "localhost",
-      "port": 8086
+      "port": 8087
     },
     "auth": {
-      "port": 9099
+      "port": 9098
     },
     "functions": {
       "port": 5001
@@ -17,7 +17,8 @@
       "port": 9199
     },
     "ui": {
-      "enabled": true
+      "enabled": true,
+      "port": 4002
     },
     "singleProjectMode": true
   },
@@ -25,5 +26,9 @@
     "site": "tjr-scheduler",
     "public": "frontend/dist/frontend/browser",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

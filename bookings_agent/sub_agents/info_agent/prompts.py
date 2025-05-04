@@ -65,6 +65,6 @@ INFO_AGENT_PROMPT = '''
 - Respect user privacy and Abdullah's privacy at all times.
 
 # Handoff Keys:
-- If user requests a paid consultation, include `handoff_to_consultation: true`.
+- If user requests a consultation, include `handoff_to_consultation: true`.
 - If user is a recruiter/partner/general inquiry, include `handoff_to_opportunities: true`.
 ''' 

@@ -93,3 +93,55 @@ This will start the Angular app at [http://localhost:4200](http://localhost:4200
 ## License
 
 MIT
+
+## Development Setup
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Start the development server:
+   ```bash
+   npm start
+   ```
+
+## Testing
+
+Run the smoke test to verify basic functionality:
+
+```bash
+npm run smoke-test
+```
+
+## Recent Fixes
+
+### Fixed 422 Validation Error (May 2025)
+
+- **Issue**: Backend rejected requests with 422 errors when `user_id` was null
+- **Root Cause**: The API requires `user_id` to be a non-null string, but the frontend was sending null
+- **Fix**: Modified `AgentService.sendMessage()` to never send a null user_id by:
+  - Using the Firebase UID when available
+  - Falling back to "anonymous-user" when no UID is available
+- **Verification**: Confirmed via the smoke test that the fix resolves the 422 error
+
+### Fixed 404 Session Not Found Error (May 2025)
+
+- **Issue**: Backend returned 404 errors because the session didn't exist
+- **Root Cause**: Messages were being sent before the session was created in the backend
+- **Fix**: Enhanced session management in several ways:
+  - Added `ensureSessionExists()` method to create sessions before sending messages
+  - Updated all message sending methods to ensure a session exists first
+  - Made chat initialization create a session automatically
+  - Added proper error handling for session creation failures
+- **Verification**: Confirmed the backend now returns 200 OK responses instead of 404 errors
+
+## Future Enhancements
+
+Once backend session issues are resolved (currently returning 404), the booking flow tests will automatically extend to verify:
+
+- Email input
+- Date selection
+- Time slot selection
+- Booking confirmation
