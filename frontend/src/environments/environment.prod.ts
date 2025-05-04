@@ -1,5 +1,6 @@
 export const environment = {
   production: true,
+  ownerFullName: 'Abdullah Abrahams',
   apiUrl: {
     agentService: 'https://bookings-agent-855515190257.us-central1.run.app', // Production Cloud Run URL
   },

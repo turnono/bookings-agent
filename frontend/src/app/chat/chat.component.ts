@@ -41,6 +41,7 @@ import {
   animate,
   transition,
 } from '@angular/animations';
+import { environment } from '../../environments/environment';
 
 interface FunctionCall {
   name: string;
@@ -897,7 +898,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.messages = [
       {
         role: 'agent',
-        text: "Hi there! I'm your booking assistant. How can I help you today?",
+        text: `Hi there! I'm the booking assistant for ${environment.ownerFullName}. How can I help you today?`,
         timestamp: Timestamp.now(),
       },
     ];
