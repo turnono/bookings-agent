@@ -30,7 +30,7 @@ BASEDIR = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(BASEDIR, "../.env"))
 
 root_agent = LlmAgent(
-    name="booking_guide",
+    name="bookings_agent",
     model=DEFAULT_MODEL,
     description="Helps others find and confirm a session with Abdullah Abrahams tailored to their needs, from validation to booking to confirmation",
     instruction=ROOT_AGENT_PROMPT,
@@ -45,5 +45,5 @@ root_agent = LlmAgent(
         FunctionTool(validate_email),
         AgentTool(intent_extractor_agent),
     ],
-    output_key="booking_guide_output"
+    output_key="bookings_agent_output"
 )
