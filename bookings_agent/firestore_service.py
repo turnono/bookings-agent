@@ -307,3 +307,52 @@ class FirestoreService:
             data["id"] = doc.id
             return sanitize_sentinel(data)
         return None
+
+    def save_inquiry(self, args):
+        """
+        Save a user inquiry to the inquiries collection
+        
+        Args:
+            args: Dictionary containing:
+                - email: User's email address
+                - inquiry_text: The user's inquiry text
+                - category: The category of the inquiry
+                - conversation_context: (Optional) A summary of the conversation
+                - status (optional): Inquiry status (default: "new")
+                - user_id (optional): User ID if available
+                - session_id (optional): Session ID if available
+                
+        Returns:
+            Dictionary with success status and ID of created document
+        """
+        try:
+            # Prepare data
+            inquiry_data = {
+                'email': args.get('email', ''),
+                'inquiry_text': args.get('inquiry_text', ''),
+                'category': args.get('category', 'General question'),
+                'conversation_context': args.get('conversation_context', ''),
+                'status': args.get('status', 'new'),
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'user_id': args.get('user_id', ''),
+                'session_id': args.get('session_id', '')
+            }
+            
+            # Create document in inquiries collection
+            inquiry_ref = self.client.collection('inquiries').document()
+            inquiry_ref.set(inquiry_data)
+            
+            return {
+                'success': True,
+                'data': {
+                    'inquiry_id': inquiry_ref.id,
+                    'message': 'Inquiry saved successfully'
+                }
+            }
+            
+        except Exception as e:
+            print(f"Error saving inquiry: {e}")
+            return {
+                'success': False,
+                'error': f"Failed to save inquiry: {str(e)}"
+            }

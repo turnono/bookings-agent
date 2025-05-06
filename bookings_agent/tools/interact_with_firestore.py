@@ -2,7 +2,16 @@ from bookings_agent.firestore_service import FirestoreService, sanitize_sentinel
 from typing import Optional, Dict, Any, List, Union
 from google.cloud.firestore_v1.transforms import Sentinel
 import datetime
+import os
 from google.adk.tools import ToolContext
+
+# Try to import ADK functions for session management
+try:
+    from google.adk import get_session_id
+    ADK_SESSION_AVAILABLE = True
+except ImportError:
+    ADK_SESSION_AVAILABLE = False
+    get_session_id = lambda: None  # Dummy function
 
 def sanitize_firestore_data(data: Any) -> Any:
     """
@@ -24,12 +33,13 @@ def interact_with_firestore(
     tool_context: ToolContext = None
 ) -> Dict[str, Any]:
     """
-    Safely execute Firestore operations on ?? as requested.
+    Safely execute Firestore operations as requested.
     Use only the specific Firestore service functions.
     Modify only what is necessary, nothing more.
     
     Args:
-        operation (str): The Firestore operation to perform (e.g., 'save_task', 'memorize')
+        operation (str): The Firestore operation to perform:
+            - "save_inquiry": Save a user inquiry to the inquiries collection
         args (Dict): Arguments required for the specific operation
         tool_context (ToolContext, optional): The ADK tool context, containing session information
         
@@ -75,14 +85,14 @@ def interact_with_firestore(
             
             if not session_id and hasattr(tool_context, "session_id"):
                 session_id = tool_context.session_id
-                
+            
             # For creation operations, ensure user_id and session_id are set
-            if operation in ["save_task", "memorize"]:
+            if operation in ["save_inquiry"]:
                 if user_id and "user_id" not in args_copy:
                     args_copy["user_id"] = user_id
                 if session_id and "session_id" not in args_copy:
                     args_copy["session_id"] = session_id
-                    
+            
             # For filtering operations, add user_id and session_id to filters
             if operation in ["list_tasks", "list_memories"]:
                 if "filters" not in args_copy:
@@ -212,6 +222,13 @@ def interact_with_firestore(
                 
             service.update_session(user_id, session_id, updates)
             response["success"] = True
+
+        elif operation == "save_inquiry":
+            result = service.save_inquiry(args_copy)
+            response["success"] = result.get("success", False)
+            response["data"] = result.get("data")
+            if not response["success"]:
+                response["error"] = result.get("error")
 
         else:
             # Safety fallback for unsupported operations
