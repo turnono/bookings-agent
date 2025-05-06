@@ -5,7 +5,6 @@ from fastapi import FastAPI, Request, Response, status, Query
 from google.adk.cli.fast_api import get_fast_api_app
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
-from bookings_agent.tools.interact_with_firestore import interact_with_firestore
 
 IS_DEV_MODE = os.getenv("ENV").lower() == "development"
 DEPLOYED_CLOUD_SERVICE_URL = os.getenv("DEPLOYED_CLOUD_SERVICE_URL")

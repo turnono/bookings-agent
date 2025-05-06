@@ -10,5 +10,6 @@ __all__ = [
     "create_event",
     "get_all_available_slots",
     "parse_natural_date",
-    "validate_email"
+    "validate_email",
+    "save_user_inquiry"
 ]

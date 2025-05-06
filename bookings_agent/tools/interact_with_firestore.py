@@ -67,24 +67,51 @@ def interact_with_firestore(
         session_id = None
         
         if tool_context:
-            # First try to get from session object directly
-            if hasattr(tool_context, "session") and tool_context.session:
-                user_id = getattr(tool_context.session, "user_id", None)
-                session_id = getattr(tool_context.session, "id", None)
-            
-            # Then try from state
-            if not user_id and hasattr(tool_context, "state"):
-                user_id = tool_context.state.get("user_id")
-            
-            if not session_id and hasattr(tool_context, "state"):
-                session_id = tool_context.state.get("session_id")
-            
-            # Fallback to direct attributes
-            if not user_id and hasattr(tool_context, "user_id"):
-                user_id = tool_context.user_id
-            
-            if not session_id and hasattr(tool_context, "session_id"):
-                session_id = tool_context.session_id
+            try:
+                # Access session information through the internal session service
+                if hasattr(tool_context, "_invocation_context") and hasattr(tool_context._invocation_context, "session_service"):
+                    session_service = tool_context._invocation_context.session_service
+                    
+                    # The session service contains a 'sessions' dictionary with app_name as key
+                    if hasattr(session_service, "__dict__") and "sessions" in session_service.__dict__:
+                        sessions_dict = session_service.__dict__["sessions"]
+                        
+                        # Get the bookings_agent sessions
+                        if "bookings_agent" in sessions_dict:
+                            bookings_sessions = sessions_dict["bookings_agent"]
+                            
+                            # The first key is the user_id
+                            if bookings_sessions:
+                                user_id = list(bookings_sessions.keys())[0]
+                                user_sessions = bookings_sessions[user_id]
+                                
+                                # The first key in user_sessions is the session_id
+                                if user_sessions:
+                                    session_id = list(user_sessions.keys())[0]
+                
+                print(f"Extracted from session service - user_id: {user_id}, session_id: {session_id}")
+            except Exception as e:
+                print(f"Error extracting session info: {e}")
+                
+                # Fall back to the old methods if the new approach fails
+                # First try to get from session object directly
+                if hasattr(tool_context, "session") and tool_context.session:
+                    user_id = getattr(tool_context.session, "user_id", None)
+                    session_id = getattr(tool_context.session, "id", None)
+                
+                # Then try from state
+                if not user_id and hasattr(tool_context, "state"):
+                    user_id = tool_context.state.get("user_id")
+                
+                if not session_id and hasattr(tool_context, "state"):
+                    session_id = tool_context.state.get("session_id")
+                
+                # Fallback to direct attributes
+                if not user_id and hasattr(tool_context, "user_id"):
+                    user_id = tool_context.user_id
+                
+                if not session_id and hasattr(tool_context, "session_id"):
+                    session_id = tool_context.session_id
             
             # For creation operations, ensure user_id and session_id are set
             if operation in ["save_inquiry"]:
@@ -170,7 +197,6 @@ def interact_with_firestore(
             memories = service.list_memories(args_copy.get("filters"))
             response["success"] = True
             response["data"] = memories  # Already sanitized by the service
-  
   
         # Session operations
         elif operation == "save_session":
