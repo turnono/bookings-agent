@@ -42,6 +42,11 @@
                       </ng-container>
                       <span [class.function-inline-text]="msg.functionCall || msg.functionResponse"
                         class="chat-message-content">{{ msg.text }}</span>
+                      <a *ngIf="msg.functionResponse?.response?.htmlLink" mat-button color="primary"
+                        [href]="msg.functionResponse.response.htmlLink" target="_blank" class="calendar-link">
+                        <mat-icon>event</mat-icon>
+                        View in Calendar
+                      </a>
                     </div>
                     <span class="chat-timestamp mat-caption">{{ msg.timestamp?.toDate() | date:'shortTime' }}</span>
                   </div>
