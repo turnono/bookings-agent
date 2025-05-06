@@ -5,7 +5,7 @@ from typing import Optional
 
 from bookings_agent.models import DEFAULT_MODEL
 from bookings_agent.prompts import ROOT_AGENT_PROMPT
-from bookings_agent.tools.google_calendar import create_event, get_available_time_slots
+from bookings_agent.tools.google_calendar import create_event, get_all_available_slots
 from bookings_agent.sub_agents.booking_validator import booking_validator_agent
 from bookings_agent.sub_agents.inquiry_collector import inquiry_collector_agent
 from bookings_agent.sub_agents.info_agent import info_agent
@@ -13,6 +13,7 @@ from google.adk.tools import FunctionTool
 from google.adk.tools.agent_tool import AgentTool
 from bookings_agent.sub_agents.intent_extractor import intent_extractor_agent
 from bookings_agent.tools.validate_email import validate_email
+from bookings_agent.tools.current_time import current_year
 
 
 # Conversation Management for Booking Agent:
@@ -41,8 +42,9 @@ root_agent = LlmAgent(
     ],
     tools=[
         FunctionTool(create_event),
-        FunctionTool(get_available_time_slots),
+        FunctionTool(get_all_available_slots),
         FunctionTool(validate_email),
+        FunctionTool(current_year),
         AgentTool(intent_extractor_agent),
     ],
     output_key="bookings_agent_output"
