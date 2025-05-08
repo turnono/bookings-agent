@@ -188,43 +188,132 @@ export class AgentService {
     appName: string,
     userId: string | null,
     sessionId: string,
-    streaming: boolean = false
+    streaming: boolean = true
   ) {
     const effectiveUserId =
       userId || this.auth.currentUser?.uid || 'anonymous-user';
 
-    return this.http
-      .post<any>(
-        `${this.baseUrl}/run_sse`,
-        {
+    if (streaming) {
+      // Return an Observable that handles Server-Sent Events (SSE) with streaming
+      return new Observable((observer) => {
+        const url = `${this.baseUrl}/run_sse`;
+
+        // Prepare request data
+        const requestData = {
           app_name: appName,
           user_id: effectiveUserId,
           session_id: sessionId,
           new_message: this.formatMessage(message),
-          streaming,
-        },
-        { responseType: 'text' as any }
-      )
-      .pipe(
-        map((response: string) => {
-          if (!response) return [];
+          streaming: true, // Enable token-by-token streaming
+        };
 
-          const eventStrings = response
-            .split('\n')
-            .filter((line) => line.trim().startsWith('data: '));
+        console.log('Starting streaming request to:', url);
 
-          return eventStrings
-            .map((eventStr) => {
-              try {
-                return JSON.parse(eventStr.substring(6));
-              } catch (e) {
-                console.error('Error parsing event:', eventStr, e);
-                return null;
-              }
-            })
-            .filter((event) => event !== null);
+        // Make the POST request to initiate streaming
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
         })
-      );
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(
+                `Server error: ${response.status} ${response.statusText}`
+              );
+            }
+
+            // Set up stream processing using the ReadableStream API
+            const reader = response.body!.getReader();
+            const textDecoder = new TextDecoder();
+
+            // Process the stream chunks as they arrive
+            const processStream = async () => {
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+
+                  if (done) {
+                    console.log('Stream complete');
+                    observer.complete();
+                    break;
+                  }
+
+                  // Decode binary chunk to text
+                  const text = textDecoder.decode(value, { stream: true });
+
+                  // Process each line (SSE format sends one event per line)
+                  const lines = text.split('\n');
+
+                  for (const line of lines) {
+                    // SSE format prefixes data with "data: "
+                    if (line.startsWith('data: ')) {
+                      try {
+                        // Parse the JSON payload
+                        const eventData = JSON.parse(line.substring(6));
+
+                        // Send the parsed event to subscribers
+                        observer.next(eventData);
+                      } catch (error) {
+                        console.warn('Error parsing SSE event:', error);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error('Stream processing error:', error);
+                observer.error(error);
+              }
+            };
+
+            // Start processing the stream
+            processStream();
+          })
+          .catch((error) => {
+            console.error('Fetch error:', error);
+            observer.error(error);
+          });
+
+        // Return a cleanup function (called when the observable is unsubscribed)
+        return () => {
+          console.log('Cleaning up streaming connection');
+          // The fetch API will automatically abort the connection when it goes out of scope
+        };
+      });
+    } else {
+      // Use the existing implementation for non-streaming requests
+      return this.http
+        .post<any>(
+          `${this.baseUrl}/run_sse`,
+          {
+            app_name: appName,
+            user_id: effectiveUserId,
+            session_id: sessionId,
+            new_message: this.formatMessage(message),
+            streaming: false,
+          },
+          { responseType: 'text' as any }
+        )
+        .pipe(
+          map((response: string) => {
+            if (!response) return [];
+
+            const eventStrings = response
+              .split('\n')
+              .filter((line) => line.trim().startsWith('data: '));
+
+            return eventStrings
+              .map((eventStr) => {
+                try {
+                  return JSON.parse(eventStr.substring(6));
+                } catch (e) {
+                  console.error('Error parsing event:', eventStr, e);
+                  return null;
+                }
+              })
+              .filter((event) => event !== null);
+          })
+        );
+    }
   }
 
   createOrUpdateSession(

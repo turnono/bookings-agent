@@ -29,7 +29,8 @@
                   <mat-icon class="chat-avatar" aria-label="Agent">person</mat-icon>
                   <div class="chat-message-bubble mat-body-2" [class.function-call-bubble]="msg.functionCall"
                     [class.function-response-bubble]="msg.functionResponse"
-                    [class.function-response-error]="msg.functionResponse && msg.functionResponse.error">
+                    [class.function-response-error]="msg.functionResponse && msg.functionResponse.error"
+                    [class.streaming-message]="msg.isStreaming">
                     <div [class.function-inline-row]="msg.functionCall || msg.functionResponse">
                       <ng-container *ngIf="msg.functionCall">
                         <mat-icon class="function-status-icon function-call-icon" color="primary">play_arrow</mat-icon>
@@ -42,6 +43,11 @@
                       </ng-container>
                       <span [class.function-inline-text]="msg.functionCall || msg.functionResponse"
                         class="chat-message-content">{{ msg.text }}</span>
+                      <span *ngIf="msg.isStreaming" class="streaming-indicator">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                      </span>
                       <a *ngIf="msg.functionResponse?.response?.htmlLink" mat-button color="primary"
                         [href]="msg.functionResponse.response.htmlLink" target="_blank" class="calendar-link">
                         <mat-icon>event</mat-icon>
@@ -123,7 +129,7 @@
       </ng-container>
     </div>
     <!-- Spinner overlay -->
-    <div class="chat-spinner-overlay" *ngIf="loading">
+    <div class="chat-spinner-overlay" *ngIf="loading && !hasStreamingMessages()">
       <mat-progress-spinner diameter="48" mode="indeterminate" color="primary"></mat-progress-spinner>
     </div>
     <!-- Footer -->

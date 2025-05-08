@@ -55,6 +55,8 @@ interface ChatMessage {
   functionCall?: FunctionCall;
   functionResponse?: any;
   timestamp?: Timestamp;
+  completed?: boolean;
+  isStreaming?: boolean;
 }
 
 // Map function names to user-friendly one-liners
@@ -265,7 +267,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
           input,
           this.agentService.appName,
           this.firebaseUserId!,
-          this.agentService.sessionId
+          this.agentService.sessionId,
+          true
         )
         .pipe(takeUntil(this.destroy$))
         .subscribe({
@@ -306,7 +309,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
               input,
               this.agentService.appName,
               this.firebaseUserId!,
-              this.agentService.sessionId
+              this.agentService.sessionId,
+              true
             );
           }),
           takeUntil(this.destroy$)
@@ -336,15 +340,14 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   handleAgentEvents(events: any) {
-    let messageAdded = false;
+    // If events is not an array in streaming mode, wrap it in an array
+    if (!Array.isArray(events)) {
+      events = [events];
+    }
 
     // Check if we received an API rate limit error
     const hasRateLimitError = events.some((event: any) =>
-      event.content?.parts?.some(
-        (part: any) =>
-          part.text?.includes('rate limit') ||
-          part.text?.includes('quota exceeded')
-      )
+      this.isRateLimitError(event)
     );
 
     if (hasRateLimitError) {
@@ -356,57 +359,135 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    for (const event of events) {
-      if (event.content && event.content.parts) {
-        for (const part of event.content.parts) {
-          // Extract and process function calls
-          if (part.functionCall) {
-            const functionCall: FunctionCall = {
-              name: part.functionCall.name,
-              arguments: this.parseFunctionArguments(part.functionCall.args),
-            };
-            // Use friendly message if available
-            const friendlyText =
-              FUNCTION_FRIENDLY_MESSAGES[functionCall.name] || 'Processing…';
-            this.messages.push({
-              role: 'agent',
-              text: friendlyText,
-              functionCall: functionCall,
-              timestamp: Timestamp.now(),
-            });
-            this.activeFunctionCall = functionCall;
-            this.detectedFunctionCalls.push(functionCall);
-            console.log('Function call detected:', functionCall);
-            this.handleFunctionCall(functionCall);
-            messageAdded = true;
-          } else if (part.functionResponse) {
-            this.activeFunctionCall = null;
-            this.handleFunctionResponse(part.functionResponse);
-          }
+    // Process each event
+    let hasCompletedEvent = false;
 
-          // Display regular text messages
-          if (part.text) {
-            this.messages.push({
-              role: 'agent',
-              text: part.text,
-              timestamp: Timestamp.now(),
-            });
-            messageAdded = true;
-          }
+    for (const event of events) {
+      // Skip invalid events
+      if (!event.content || !event.content.parts) {
+        continue;
+      }
+
+      // Process each part in the event
+      for (const part of event.content.parts) {
+        // Handle function calls
+        if (part.functionCall) {
+          this.handleFunctionCallPart(part);
         }
+        // Handle function responses
+        else if (part.functionResponse) {
+          this.activeFunctionCall = null;
+          this.handleFunctionResponse(part.functionResponse);
+        }
+        // Handle text messages
+        else if (part.text) {
+          this.handleTextPart(part, event.partial === true);
+        }
+      }
+
+      // Track if we have a completed event (non-partial)
+      if (!event.partial) {
+        hasCompletedEvent = true;
       }
     }
 
-    this.loading = false;
+    // Refresh the UI after processing events
+    this.scrollToBottom();
 
-    // Ensure scroll happens after DOM update
-    if (messageAdded) {
-      this.scrollToBottom();
-      // Apply a second scroll after a slight delay to handle any rendering delays
-      setTimeout(() => this.scrollToBottom(), 300);
+    // Only remove loading indicator when we receive a completed event
+    if (hasCompletedEvent) {
+      this.loading = false;
+      this.focusInput();
+
+      // Mark any streaming messages as complete
+      this.messages.forEach((msg) => {
+        if (msg.isStreaming) {
+          msg.isStreaming = false;
+          msg.completed = true;
+        }
+      });
+    }
+  }
+
+  // Helper method to handle function call parts
+  private handleFunctionCallPart(part: any) {
+    const functionCall: FunctionCall = {
+      name: part.functionCall.name,
+      arguments: this.parseFunctionArguments(part.functionCall.args),
+    };
+
+    // Use friendly message if available
+    const friendlyText =
+      FUNCTION_FRIENDLY_MESSAGES[functionCall.name] || 'Processing…';
+
+    // Find existing "processing" message to update instead of adding new one
+    const existingFunctionCallMsg = this.messages.find(
+      (msg) =>
+        msg.role === 'agent' &&
+        msg.functionCall?.name === functionCall.name &&
+        !msg.completed
+    );
+
+    if (existingFunctionCallMsg) {
+      // Update existing message
+      existingFunctionCallMsg.text = friendlyText;
+      existingFunctionCallMsg.functionCall = functionCall;
+    } else {
+      // Add new message
+      this.messages.push({
+        role: 'agent',
+        text: friendlyText,
+        functionCall: functionCall,
+        timestamp: Timestamp.now(),
+        completed: false,
+        isStreaming: false,
+      });
     }
 
-    this.focusInput();
+    this.activeFunctionCall = functionCall;
+    this.detectedFunctionCalls.push(functionCall);
+    console.log('Function call detected:', functionCall);
+    this.handleFunctionCall(functionCall);
+  }
+
+  // Simple helper method to handle text parts
+  private handleTextPart(part: any, isPartial: boolean) {
+    // Skip empty text messages
+    if (!part.text || !part.text.trim()) {
+      return;
+    }
+
+    const lastMessage =
+      this.messages.length > 0 ? this.messages[this.messages.length - 1] : null;
+
+    // Only append to the last message if it's a streaming agent message without a function call
+    const shouldAppendToLastMessage =
+      lastMessage &&
+      lastMessage.role === 'agent' &&
+      !lastMessage.functionCall &&
+      lastMessage.isStreaming;
+
+    if (shouldAppendToLastMessage) {
+      // For streaming messages, replace the entire text as the server sends the full accumulated text
+      lastMessage.text = part.text;
+      lastMessage.isStreaming = isPartial;
+
+      if (!isPartial) {
+        lastMessage.completed = true;
+      }
+    } else {
+      // Create a new message
+      this.messages.push({
+        role: 'agent',
+        text: part.text,
+        timestamp: Timestamp.now(),
+        completed: !isPartial,
+        isStreaming: isPartial,
+      });
+    }
+
+    // Always scroll when we get new text
+    this.scrollToBottom();
   }
 
   // Helper method to parse function arguments
@@ -503,7 +584,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
         `I confirm booking for slot: ${this.selectedSlot}`,
         this.agentService.appName,
         this.firebaseUserId!,
-        this.agentService.sessionId
+        this.agentService.sessionId,
+        true
       )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -607,7 +689,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
           this.screeningAnswer,
           this.agentService.appName,
           this.firebaseUserId!,
-          this.agentService.sessionId
+          this.agentService.sessionId,
+          true
         )
         .pipe(takeUntil(this.destroy$))
         .subscribe({
@@ -647,7 +730,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
               this.screeningAnswer,
               this.agentService.appName,
               this.firebaseUserId!,
-              this.agentService.sessionId
+              this.agentService.sessionId,
+              true
             );
           }),
           takeUntil(this.destroy$)
@@ -696,7 +780,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
           dateStr,
           this.agentService.appName,
           this.firebaseUserId!,
-          this.agentService.sessionId
+          this.agentService.sessionId,
+          true
         )
         .pipe(takeUntil(this.destroy$))
         .subscribe({
@@ -736,7 +821,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
               dateStr,
               this.agentService.appName,
               this.firebaseUserId!,
-              this.agentService.sessionId
+              this.agentService.sessionId,
+              true
             );
           }),
           takeUntil(this.destroy$)
@@ -784,7 +870,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
           slot,
           this.agentService.appName,
           this.firebaseUserId!,
-          this.agentService.sessionId
+          this.agentService.sessionId,
+          true
         )
         .pipe(takeUntil(this.destroy$))
         .subscribe({
@@ -824,7 +911,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
               slot,
               this.agentService.appName,
               this.firebaseUserId!,
-              this.agentService.sessionId
+              this.agentService.sessionId,
+              true
             );
           }),
           takeUntil(this.destroy$)
@@ -924,5 +1012,19 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       this.mutationObserver.disconnect();
       this.mutationObserver = null;
     }
+  }
+
+  // Helper method to check if there are any streaming messages
+  hasStreamingMessages(): boolean {
+    return this.messages.some((msg) => msg.isStreaming === true);
+  }
+
+  // Helper method to check for rate limit errors
+  private isRateLimitError(event: any): boolean {
+    return event.content?.parts?.some(
+      (part: any) =>
+        part.text?.includes('rate limit') ||
+        part.text?.includes('quota exceeded')
+    );
   }
 }
