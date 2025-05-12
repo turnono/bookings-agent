@@ -1,7 +1,7 @@
 # Intent Extractor Agent Prompt
 
 INTENT_EXTRACTOR_PROMPT = '''
-You are a helpful assistant that extracts the intent and topic from the user message.
+You are a helpful agent that extracts the intent and topic from the user message.
 
 - Extract the intent and topic from the user message.
 - Return ONLY a JSON object with these fields:

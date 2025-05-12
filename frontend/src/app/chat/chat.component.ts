@@ -33,6 +33,7 @@ import { EmailDialogComponent } from '../dialogs/email-dialog.component';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { switchMap } from 'rxjs/operators';
 import { Auth } from '@angular/fire/auth';
+import { FormatMessagePipe } from './format-message.pipe';
 
 import {
   trigger,
@@ -61,14 +62,17 @@ interface ChatMessage {
 
 // Map function names to user-friendly one-liners
 const FUNCTION_FRIENDLY_MESSAGES: Record<string, string> = {
-  transfer_to_agent: 'Connecting you to an agent…',
-  availability_agent: 'Checking available slots…',
-  'availability_agent.getSlots': 'Checking available slots…',
-  select_time_slot: 'Preparing available time slots…',
-  screening_question: 'Just a quick question…',
-  validate_email: 'Validating your email…',
-  create_booking: 'Creating your booking…',
-  send_invite: 'Sending your calendar invitation…',
+  transfer_to_agent: 'Connecting to agent…',
+  availability_agent: 'Checking availability…',
+  'availability_agent.getSlots': 'Finding slots…',
+  select_time_slot: 'Available time slots…',
+  screening_question: 'Qualification…',
+  validate_email: 'Validating email…',
+  create_booking: 'Creating booking…',
+  send_invite: 'Sending invitation…',
+  current_year: 'Getting date info…',
+  current_time: 'Getting time info…',
+  get_all_available_slots: 'Checking calendar…',
   // Add more mappings as needed
 };
 
@@ -81,6 +85,19 @@ const FUNCTION_DIALOG_MAP: Record<string, any> = {
   get_available_time_slots: SlotPickerDialogComponent,
   validate_email: EmailDialogComponent,
 };
+
+// Add new interfaces for time slot grouping
+interface SlotInfo {
+  time: string; // Just the time part (e.g., "18:00-18:30")
+  fullSlot: string; // The full date+time string as received from the API
+}
+
+interface DateGroup {
+  date: string; // Full date (e.g., "May 13, 2025")
+  dayOfWeek: string; // Day of week (e.g., "Tuesday")
+  dateObj: Date; // Date object for sorting
+  slots: SlotInfo[]; // Time slots for this date
+}
 
 @Component({
   selector: 'app-chat',
@@ -101,6 +118,7 @@ const FUNCTION_DIALOG_MAP: Record<string, any> = {
     MatIconModule,
     MatDividerModule,
     MatToolbarModule,
+    FormatMessagePipe,
   ],
   styleUrls: ['./chat.component.scss'],
   animations: [
@@ -110,6 +128,18 @@ const FUNCTION_DIALOG_MAP: Record<string, any> = {
         animate(
           '400ms cubic-bezier(.35,0,.25,1)',
           style({ opacity: 1, transform: 'none' })
+        ),
+      ]),
+    ]),
+    trigger('fadeInOut', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(10px)' }),
+        animate('400ms ease-out', style({ opacity: 1, transform: 'none' })),
+      ]),
+      transition(':leave', [
+        animate(
+          '300ms ease-in',
+          style({ opacity: 0, transform: 'translateY(-10px)' })
         ),
       ]),
     ]),
@@ -152,6 +182,9 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private mutationObserver: MutationObserver | null = null;
   private firebaseUserId: string | null = null;
+
+  // Add new property for grouped time slots
+  groupedTimeSlots: DateGroup[] = [];
 
   constructor(
     private agentService: AgentService,
@@ -340,72 +373,80 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   handleAgentEvents(events: any) {
-    // If events is not an array in streaming mode, wrap it in an array
-    if (!Array.isArray(events)) {
-      events = [events];
-    }
+    try {
+      // If events is not an array in streaming mode, wrap it in an array
+      if (!Array.isArray(events)) {
+        events = [events];
+      }
 
-    // Check if we received an API rate limit error
-    const hasRateLimitError = events.some((event: any) =>
-      this.isRateLimitError(event)
-    );
+      // Check if we received an API rate limit error
+      const hasRateLimitError = events.some((event: any) =>
+        this.isRateLimitError(event)
+      );
 
-    if (hasRateLimitError) {
+      if (hasRateLimitError) {
+        this.handleError(
+          'The service is experiencing high demand. Please try again in a moment.'
+        );
+        this.loading = false;
+        this.bookingInProgress = false; // Reset booking flag if rate limited
+        return;
+      }
+
+      // Process each event
+      let hasCompletedEvent = false;
+
+      for (const event of events) {
+        // Skip invalid events
+        if (!event || !event.content || !event.content.parts) {
+          continue;
+        }
+
+        // Process each part in the event
+        for (const part of event.content.parts) {
+          // Handle function calls
+          if (part.functionCall) {
+            this.handleFunctionCallPart(part);
+          }
+          // Handle function responses
+          else if (part.functionResponse) {
+            this.activeFunctionCall = null;
+            this.handleFunctionResponse(part.functionResponse);
+          }
+          // Handle text messages
+          else if (part.text) {
+            this.handleTextPart(part, event.partial === true);
+          }
+        }
+
+        // Track if we have a completed event (non-partial)
+        if (!event.partial) {
+          hasCompletedEvent = true;
+        }
+      }
+
+      // Only scroll to bottom once after processing all events
+      setTimeout(() => this.scrollToBottom(), 0);
+
+      // Only remove loading indicator when we receive a completed event
+      if (hasCompletedEvent) {
+        this.loading = false;
+        this.focusInput();
+
+        // Mark any streaming messages as complete
+        this.messages.forEach((msg) => {
+          if (msg.isStreaming) {
+            msg.isStreaming = false;
+            msg.completed = true;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error handling agent events:', error);
       this.handleError(
-        'The service is experiencing high demand. Please try again in a moment.'
+        'An error occurred while processing the agent response.'
       );
       this.loading = false;
-      this.bookingInProgress = false; // Reset booking flag if rate limited
-      return;
-    }
-
-    // Process each event
-    let hasCompletedEvent = false;
-
-    for (const event of events) {
-      // Skip invalid events
-      if (!event.content || !event.content.parts) {
-        continue;
-      }
-
-      // Process each part in the event
-      for (const part of event.content.parts) {
-        // Handle function calls
-        if (part.functionCall) {
-          this.handleFunctionCallPart(part);
-        }
-        // Handle function responses
-        else if (part.functionResponse) {
-          this.activeFunctionCall = null;
-          this.handleFunctionResponse(part.functionResponse);
-        }
-        // Handle text messages
-        else if (part.text) {
-          this.handleTextPart(part, event.partial === true);
-        }
-      }
-
-      // Track if we have a completed event (non-partial)
-      if (!event.partial) {
-        hasCompletedEvent = true;
-      }
-    }
-
-    // Refresh the UI after processing events
-    this.scrollToBottom();
-
-    // Only remove loading indicator when we receive a completed event
-    if (hasCompletedEvent) {
-      this.loading = false;
-      this.focusInput();
-
-      // Mark any streaming messages as complete
-      this.messages.forEach((msg) => {
-        if (msg.isStreaming) {
-          msg.isStreaming = false;
-          msg.completed = true;
-        }
-      });
     }
   }
 
@@ -457,6 +498,9 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Process the text for formatting (if it's from the agent)
+    const processedText = part.text;
+
     const lastMessage =
       this.messages.length > 0 ? this.messages[this.messages.length - 1] : null;
 
@@ -469,7 +513,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (shouldAppendToLastMessage) {
       // For streaming messages, replace the entire text as the server sends the full accumulated text
-      lastMessage.text = part.text;
+      lastMessage.text = processedText;
       lastMessage.isStreaming = isPartial;
 
       if (!isPartial) {
@@ -479,7 +523,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
       // Create a new message
       this.messages.push({
         role: 'agent',
-        text: part.text,
+        text: processedText,
         timestamp: Timestamp.now(),
         completed: !isPartial,
         isStreaming: isPartial,
@@ -514,6 +558,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.availableDates = [];
     this.availableSlots = [];
     this.selectedSlot = '';
+    this.groupedTimeSlots = []; // Reset grouped slots
 
     // Handle validate_email function call
     if (func.name === 'validate_email') {
@@ -530,6 +575,8 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (func.name === 'select_time_slot') {
       // Extract slots from arguments
       this.availableSlots = func.arguments?.slots || [];
+      // Group slots by date
+      this.groupTimeSlotsByDate();
     } else if (func.name === 'create_booking') {
       // Before creating booking, check if user is anonymous
       if (this.auth.currentUser?.isAnonymous) {
@@ -644,6 +691,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         );
       }
+    } else if (funcResp.name === 'send_invite') {
     } else if (funcResp.name === 'send_invite') {
       // Show snackbar based on invitation status
       if (funcResp.response?.status === 'confirmed') {
@@ -855,11 +903,16 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
   submitSlotSelection(slot: string) {
     this.selectedSlot = slot;
+
+    // Format slot for a nicer display
+    const formattedSlot = this.formatSlotForDisplay(slot);
+
     this.messages.push({
       role: 'user',
-      text: slot,
+      text: `I'd like to book the slot on ${formattedSlot}`,
       timestamp: Timestamp.now(),
     });
+
     this.loading = true;
     this.scrollToBottom();
 
@@ -943,6 +996,35 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedSlot = '';
   }
 
+  // Helper method to format slot for display
+  private formatSlotForDisplay(slot: string): string {
+    // Slot format: "Tuesday, May 13, 2025 at 18:00-18:30"
+    const parts = slot.split(' at ');
+    if (parts.length !== 2) return slot;
+
+    const dateString = parts[0].trim();
+    const timeString = parts[1].trim();
+
+    // Convert 24h time to 12h format with AM/PM
+    const timeFormatted = timeString.replace(
+      /(\d{2}):(\d{2})-(\d{2}):(\d{2})/g,
+      (match, startHour, startMin, endHour, endMin) => {
+        const startH = parseInt(startHour);
+        const endH = parseInt(endHour);
+
+        const startAmPm = startH >= 12 ? 'PM' : 'AM';
+        const endAmPm = endH >= 12 ? 'PM' : 'AM';
+
+        const startH12 = startH % 12 || 12;
+        const endH12 = endH % 12 || 12;
+
+        return `${startH12}:${startMin} ${startAmPm} - ${endH12}:${endMin} ${endAmPm}`;
+      }
+    );
+
+    return `${dateString} at ${timeFormatted}`;
+  }
+
   newChat() {
     if (!this.firebaseUserId) {
       this.handleError('Firebase UID not ready yet.');
@@ -986,7 +1068,7 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.messages = [
       {
         role: 'agent',
-        text: `Hi there! I'm the booking assistant for ${environment.ownerFullName}. How can I help you today?`,
+        text: `Hi there! I'm an AI Agent for ${environment.ownerFullName}. What can I do for you today?`,
         timestamp: Timestamp.now(),
       },
     ];
@@ -1001,7 +1083,6 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
     this.bookingTopic = '';
     this.bookingId = '';
     this.bookingInProgress = false;
-    // Don't reset sessionCreated here, as it should persist for the duration of the chat
     this.focusInput();
   }
 
@@ -1026,5 +1107,169 @@ export class ChatComponent implements OnInit, AfterViewInit, OnDestroy {
         part.text?.includes('rate limit') ||
         part.text?.includes('quota exceeded')
     );
+  }
+
+  // Helper to get a user-friendly function name
+  getFunctionDisplayName(name: string): string {
+    // For transfer_to_agent, show which agent is being connected to
+    if (
+      name === 'transfer_to_agent' &&
+      this.activeFunctionCall?.arguments?.agent_name
+    ) {
+      const agentName = this.getAgentDisplayName(
+        this.activeFunctionCall.arguments.agent_name
+      );
+      return `Connecting to ${agentName}`;
+    }
+
+    // Use predefined friendly names if available
+    if (FUNCTION_FRIENDLY_MESSAGES[name]) {
+      // Extract just the action part without the ellipsis
+      return FUNCTION_FRIENDLY_MESSAGES[name].replace('…', '');
+    }
+
+    // Handle sub-agent calls (format: agent.method)
+    if (name.includes('.')) {
+      const parts = name.split('.');
+      // Capitalize each part and format
+      return parts.map((part) => this.formatNamePart(part)).join(' → ');
+    }
+
+    // Format snake_case to Title Case
+    return this.formatNamePart(name);
+  }
+
+  // Helper to get a user-friendly agent name
+  getAgentDisplayName(agentName: string): string {
+    const agentDisplayNames: Record<string, string> = {
+      info_agent: 'Info Agent',
+      booking_validator: 'Booking Validator',
+      inquiry_collector: 'Inquiry Agent',
+      intent_extractor: 'Intent Analyzer',
+      // Add more agent mappings as needed
+    };
+
+    return agentDisplayNames[agentName] || this.formatNamePart(agentName);
+  }
+
+  // Helper to format name parts
+  private formatNamePart(name: string): string {
+    return name
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  // Method to group time slots by date for better display
+  private groupTimeSlotsByDate() {
+    const dateGroups = new Map<string, DateGroup>();
+
+    // Format options for displaying dates
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    };
+
+    const dayOptions: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+    };
+
+    // Process each slot
+    for (const slot of this.availableSlots) {
+      // Parse the slot string (format: "Tuesday, May 13, 2025 at 18:00-18:30")
+      const parts = slot.split(' at ');
+      if (parts.length !== 2) continue;
+
+      const dateString = parts[0].trim();
+      const timeString = parts[1].trim();
+
+      // Create a date object for sorting
+      const dateObj = new Date(dateString);
+
+      // Format the date nicer
+      const formattedDate = dateObj.toLocaleDateString('en-US', dateOptions);
+      const dayOfWeek = dateObj.toLocaleDateString('en-US', dayOptions);
+
+      // Get or create the date group
+      let dateGroup = dateGroups.get(formattedDate);
+      if (!dateGroup) {
+        dateGroup = {
+          date: formattedDate,
+          dayOfWeek: dayOfWeek,
+          dateObj: dateObj,
+          slots: [],
+        };
+        dateGroups.set(formattedDate, dateGroup);
+      }
+
+      // Add the slot to the group
+      dateGroup.slots.push({
+        time: timeString,
+        fullSlot: slot,
+      });
+    }
+
+    // Convert map to array and sort by date
+    this.groupedTimeSlots = Array.from(dateGroups.values()).sort(
+      (a, b) => a.dateObj.getTime() - b.dateObj.getTime()
+    );
+  }
+
+  // Helper method to determine if message text should be shown
+  shouldShowMessageText(msg: ChatMessage): boolean {
+    // Don't show generic function call status messages like "Processing..." or "Done."
+    if (!msg.text) return false;
+
+    // Don't show redundant "Processing..." text for function calls
+    if (
+      msg.functionCall &&
+      (msg.text === 'Processing…' ||
+        msg.text.includes('Connecting to agent') ||
+        msg.text.includes('Checking availability') ||
+        msg.text.includes('Finding slots'))
+    ) {
+      return false;
+    }
+
+    // Don't show redundant "Done." text for function responses
+    if (
+      msg.functionResponse &&
+      (msg.text === 'Done.' ||
+        msg.text.includes('Connecting to agent') ||
+        msg.text.includes('slots found'))
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Format time from 24h to 12h format for display
+  formatTimeSlot(timeSlot: string): string {
+    try {
+      // Clean up the time slot (remove any extra spaces)
+      const cleanTimeSlot = timeSlot.replace(/\s+/g, '');
+
+      // Format like "18:00-18:30" to "6:00 PM - 6:30 PM"
+      return cleanTimeSlot.replace(
+        /(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/g,
+        (_, h1, m1, h2, m2) => {
+          const hour1 = parseInt(h1, 10);
+          const hour2 = parseInt(h2, 10);
+
+          const period1 = hour1 >= 12 ? 'PM' : 'AM';
+          const period2 = hour2 >= 12 ? 'PM' : 'AM';
+
+          const h1Formatted = hour1 % 12 || 12;
+          const h2Formatted = hour2 % 12 || 12;
+
+          return `${h1Formatted}:${m1} ${period1} - ${h2Formatted}:${m2} ${period2}`;
+        }
+      );
+    } catch (error) {
+      console.error('Error formatting time slot:', error);
+      return timeSlot; // Return original if there's an error
+    }
   }
 }

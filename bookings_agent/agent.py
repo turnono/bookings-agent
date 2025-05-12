@@ -23,7 +23,7 @@ from bookings_agent.tools.current_time import current_year
 # - No hard limits are shown to the user — all restrictions are applied subtly to preserve a professional and welcoming experience.
 
 AGENT_SUMMARY = (
-    "I am your booking assistant, helping others quickly find and confirm a session tailored to their needs. "
+    "I am your booking agent, helping others quickly find and confirm a session tailored to their needs. "
     "I ensure a smooth, respectful, and secure experience, from validation to booking to confirmation."
 )
 
@@ -36,7 +36,6 @@ root_agent = LlmAgent(
     description="Helps others find and confirm a session with Abdullah Abrahams tailored to their needs, from validation to booking to confirmation",
     instruction=ROOT_AGENT_PROMPT,
     sub_agents=[
-        booking_validator_agent,
         inquiry_collector_agent,
         info_agent,
     ],
@@ -46,6 +45,7 @@ root_agent = LlmAgent(
         FunctionTool(validate_email),
         FunctionTool(current_year),
         AgentTool(intent_extractor_agent),
+        AgentTool(booking_validator_agent),
     ],
     output_key="bookings_agent_output"
 )

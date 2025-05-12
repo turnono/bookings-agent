@@ -18,7 +18,7 @@
                 <div class="system-message-group">
                   <mat-icon class="chat-avatar" aria-label="System">error_outline</mat-icon>
                   <div class="chat-message-bubble mat-body-2">
-                    <span class="chat-message-content">{{ msg.text }}</span>
+                    <span class="chat-message-content" [innerHtml]="msg.text | formatMessage"></span>
                     <span class="chat-timestamp mat-caption">{{ msg.timestamp?.toDate() | date:'shortTime' }}</span>
                   </div>
                 </div>
@@ -26,23 +26,58 @@
               <!-- Agent Message -->
               <ng-container *ngSwitchCase="'agent'">
                 <div class="agent-message-group">
-                  <mat-icon class="chat-avatar" aria-label="Agent">person</mat-icon>
+                  <mat-icon class="chat-avatar" aria-label="Agent">smart_toy</mat-icon>
                   <div class="chat-message-bubble mat-body-2" [class.function-call-bubble]="msg.functionCall"
                     [class.function-response-bubble]="msg.functionResponse"
                     [class.function-response-error]="msg.functionResponse && msg.functionResponse.error"
                     [class.streaming-message]="msg.isStreaming">
                     <div [class.function-inline-row]="msg.functionCall || msg.functionResponse">
                       <ng-container *ngIf="msg.functionCall">
-                        <mat-icon class="function-status-icon function-call-icon" color="primary">play_arrow</mat-icon>
+                        <div class="function-call-container">
+                          <div class="function-header">
+                            <mat-icon class="function-status-icon function-call-icon"
+                              color="primary">play_arrow</mat-icon>
+                            <div class="function-badge">
+                              <span class="function-badge-label">{{getFunctionDisplayName(msg.functionCall.name)}}
+                                <span
+                                  *ngIf="msg.functionCall.name === 'transfer_to_agent' && msg.functionCall?.arguments?.agent_name"
+                                  class="agent-name">
+                                  → {{getAgentDisplayName(msg?.functionCall?.arguments?.agent_name)}}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <span
+                          *ngIf="!msg.text || msg.text === 'Processing…' || msg.text.includes('Connecting to agent')"
+                          class="no-text-display"></span>
                       </ng-container>
                       <ng-container *ngIf="msg.functionResponse">
-                        <mat-icon *ngIf="!msg.functionResponse.error" class="function-status-icon function-success-icon"
-                          color="accent">check_circle</mat-icon>
-                        <mat-icon *ngIf="msg.functionResponse.error" class="function-status-icon function-error-icon"
-                          color="warn">error</mat-icon>
+                        <div class="function-response-container">
+                          <div class="function-header">
+                            <mat-icon *ngIf="!msg.functionResponse.error"
+                              class="function-status-icon function-success-icon" color="accent">check_circle</mat-icon>
+                            <mat-icon *ngIf="msg.functionResponse.error"
+                              class="function-status-icon function-error-icon" color="warn">error</mat-icon>
+                            <div class="function-badge" [class.function-badge-success]="!msg.functionResponse.error"
+                              [class.function-badge-error]="msg.functionResponse.error">
+                              <span class="function-badge-label">{{getFunctionDisplayName(msg.functionResponse.name)}}
+                                <span
+                                  *ngIf="msg.functionResponse.name === 'transfer_to_agent' && msg.functionResponse.response?.agent_name"
+                                  class="agent-name">
+                                  → {{getAgentDisplayName(msg.functionResponse.response.agent_name)}}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <span *ngIf="!msg.text || msg.text === 'Done.' || msg.text.includes('Connecting to agent')"
+                          class="no-text-display"></span>
                       </ng-container>
-                      <span [class.function-inline-text]="msg.functionCall || msg.functionResponse"
-                        class="chat-message-content">{{ msg.text }}</span>
+                      <span
+                        *ngIf="(msg.text && msg.text !== 'Processing…' && msg.text !== 'Done.' && !msg.text.includes('Connecting to agent')) || (!msg.functionCall && !msg.functionResponse)"
+                        [class.function-inline-text]="msg.functionCall || msg.functionResponse"
+                        class="chat-message-content" [innerHtml]="msg.text | formatMessage"></span>
                       <span *ngIf="msg.isStreaming" class="streaming-indicator">
                         <span class="typing-dot"></span>
                         <span class="typing-dot"></span>
@@ -63,7 +98,7 @@
                 <div class="user-message-group">
                   <mat-icon class="chat-avatar" aria-label="You">person</mat-icon>
                   <div class="chat-message-bubble mat-body-2">
-                    <span class="chat-message-content">{{ msg.text }}</span>
+                    <span class="chat-message-content" [innerHtml]="msg.text | formatMessage"></span>
                     <span class="chat-timestamp mat-caption">{{ msg.timestamp?.toDate() | date:'shortTime' }}</span>
                   </div>
                 </div>
@@ -79,15 +114,19 @@
 
       <!-- Screening question -->
       <ng-container *ngIf="activeFunctionCall && activeFunctionCall.name === 'screening_question'">
-        <mat-form-field appearance="outline" class="w-100">
-          <mat-label>{{ activeFunctionCall.arguments?.question || 'Your answer' }}</mat-label>
-          <input matInput [(ngModel)]="screeningAnswer" (keyup.enter)="submitScreeningAnswer()" #chatInput
-            aria-label="Screening answer input" />
-        </mat-form-field>
-        <button mat-icon-button color="primary" (click)="submitScreeningAnswer()"
-          [disabled]="loading || !screeningAnswer.trim()">
-          <mat-icon>send</mat-icon>
-        </button>
+        <div class="screening-question-container">
+          <div class="screening-question-prompt">{{ activeFunctionCall.arguments?.question || 'Your answer' }}</div>
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Your answer</mat-label>
+            <input matInput [(ngModel)]="screeningAnswer" (keyup.enter)="submitScreeningAnswer()" #chatInput
+              aria-label="Screening answer input" />
+            <mat-hint>Press Enter to submit</mat-hint>
+          </mat-form-field>
+          <button mat-icon-button color="primary" (click)="submitScreeningAnswer()"
+            [disabled]="loading || !screeningAnswer.trim()">
+            <mat-icon>send</mat-icon>
+          </button>
+        </div>
       </ng-container>
 
       <!-- Date selection -->
@@ -95,9 +134,10 @@
         <mat-form-field appearance="outline" class="w-100">
           <mat-label>Select a date</mat-label>
           <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [matDatepickerFilter]="dateFilter"
-            #chatInput aria-label="Date selection input" />
+            #chatInput aria-label="Date selection input" placeholder="MM/DD/YYYY" />
+          <mat-hint>Tap to select an available date</mat-hint>
           <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-          <mat-datepicker #picker></mat-datepicker>
+          <mat-datepicker #picker touchUi></mat-datepicker>
         </mat-form-field>
         <button mat-icon-button color="primary" (click)="submitDateSelection()" [disabled]="loading || !selectedDate">
           <mat-icon>send</mat-icon>
@@ -107,10 +147,26 @@
       <!-- Time-slot selection -->
       <ng-container
         *ngIf="activeFunctionCall && activeFunctionCall.name === 'select_time_slot' && availableSlots.length">
-        <mat-chip-listbox aria-label="Available time slots">
-          <mat-chip-option *ngFor="let slot of availableSlots" (click)="submitSlotSelection(slot)">{{ slot
-            }}</mat-chip-option>
-        </mat-chip-listbox>
+        <div class="calendar-slot-container">
+          <h3 class="calendar-title">Available Time Slots</h3>
+          <div class="date-group-container">
+            <ng-container *ngFor="let dateGroup of groupedTimeSlots; let first = first">
+              <div class="date-group" [class.upcoming-date]="first">
+                <div class="date-header">
+                  <div class="date-badge" *ngIf="first">Next Available</div>
+                  <div class="date-day">{{dateGroup.dayOfWeek}}</div>
+                  <div class="date-full">{{dateGroup.date}}</div>
+                </div>
+                <div class="time-slots-grid">
+                  <button *ngFor="let slot of dateGroup.slots" mat-stroked-button class="calendar-slot-button"
+                    (click)="submitSlotSelection(slot.fullSlot)">
+                    {{slot.time}}
+                  </button>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+        </div>
       </ng-container>
 
       <!-- Default text input -->
